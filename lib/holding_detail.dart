@@ -204,18 +204,10 @@ class _HoldingDetailPageState extends State<HoldingDetailPage>
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _Metric(
-              'Current value',
-              _money(widget.holding.value, widget.baseCurrency),
-            ),
-            _Metric('Allocation', _percent(widget.holding.allocation)),
-            if (!_isCash)
-              _Metric('Return', _percent(widget.holding.netPerformancePercent)),
-          ],
+        _SummaryStrip(
+          value: _money(widget.holding.value, widget.baseCurrency),
+          allocation: _percent(widget.holding.allocation),
+          performance: _percent(widget.holding.netPerformancePercent),
         ),
         const SizedBox(height: 18),
         if (item.history.isNotEmpty) ...[
@@ -370,6 +362,103 @@ class _ActivityTabState extends State<_ActivityTab>
           client: widget.client,
         ),
       ],
+    );
+  }
+}
+
+class _SummaryStrip extends StatelessWidget {
+  const _SummaryStrip({
+    required this.value,
+    required this.allocation,
+    required this.performance,
+  });
+
+  final String value;
+  final String allocation;
+  final String performance;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = [
+      ('Value', value),
+      ('Allocation', allocation),
+      ('Return', performance),
+    ];
+
+    final scheme = Theme.of(context).colorScheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < 330 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.25;
+
+        Widget metric(String label, String value) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              const SizedBox(height: 6),
+              if (stacked)
+                Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleSmall,
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+
+        return Card(
+          key: const ValueKey('holding-summary-strip'),
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: stacked
+                ? Column(
+                    children: [
+                      for (var i = 0; i < metrics.length; i++) ...[
+                        if (i > 0) const Divider(height: 1),
+                        metric(metrics[i].$1, metrics[i].$2),
+                      ],
+                    ],
+                  )
+                : IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < metrics.length; i++) ...[
+                          if (i > 0)
+                            VerticalDivider(
+                              width: 1,
+                              thickness: 1,
+                              color: scheme.outlineVariant,
+                            ),
+                          Expanded(child: metric(metrics[i].$1, metrics[i].$2)),
+                        ],
+                      ],
+                    ),
+                  ),
+          ),
+        );
+      },
     );
   }
 }
