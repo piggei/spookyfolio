@@ -10,17 +10,17 @@ class AccountsPage extends StatefulWidget {
     required this.serverUrl,
     required this.jwt,
     required this.baseCurrency,
-    required this.selectedAccountId,
-    required this.onAccountSelected,
     this.client,
+    this.embedded = false,
+    this.refreshRevision = 0,
   });
 
   final String serverUrl;
   final String jwt;
   final String baseCurrency;
-  final String? selectedAccountId;
-  final ValueChanged<PortfolioAccount?> onAccountSelected;
   final PortfolioClient? client;
+  final bool embedded;
+  final int refreshRevision;
 
   @override
   State<AccountsPage> createState() => _AccountsPageState();
@@ -39,7 +39,8 @@ class _AccountsPageState extends State<AccountsPage> {
   void didUpdateWidget(covariant AccountsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.serverUrl != widget.serverUrl ||
-        oldWidget.jwt != widget.jwt) {
+        oldWidget.jwt != widget.jwt ||
+        oldWidget.refreshRevision != widget.refreshRevision) {
       _reload();
     }
   }
@@ -59,136 +60,113 @@ class _AccountsPageState extends State<AccountsPage> {
   String _allocation(double? value) =>
       value == null ? 'Not available' : '${(value * 100).toStringAsFixed(2)}%';
 
-  void _select(PortfolioAccount? account) {
-    widget.onAccountSelected(account);
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Accounts'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh accounts',
-            onPressed: () => setState(_reload),
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: FutureBuilder<PortfolioAccountsCatalog>(
-          future: _catalog,
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              if (snapshot.hasError) {
-                return Center(
+    final header = AppBar(
+      title: const Text('Accounts'),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh accounts',
+          onPressed: () => setState(_reload),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    );
+    final body = SafeArea(
+      child: FutureBuilder<PortfolioAccountsCatalog>(
+        future: _catalog,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Could not load accounts.'),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: () => setState(_reload),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            return const Center(child: CircularProgressIndicator());
+          }
+          final accounts = snapshot.requireData.accounts;
+          return ListView(
+            key: const ValueKey('accounts-overview-page'),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            children: [
+              Text(
+                'Accounts (${accounts.length})',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              const Text('Amounts are reported in their indicated currencies.'),
+              const SizedBox(height: 12),
+              if (accounts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text('No accounts found.'),
+                ),
+              for (final account in accounts)
+                Card(
+                  key: ValueKey('account-${account.id}'),
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('Could not load accounts.'),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: () => setState(_reload),
-                          child: const Text('Retry'),
+                        ListTile(
+                          title: Text(account.name),
+                          subtitle: Text(
+                            [
+                              if (account.platformName != null)
+                                account.platformName!,
+                              account.currency,
+                            ].join(' · '),
+                          ),
                         ),
+                        const Divider(height: 1),
+                        _metric(
+                          'Cash balance',
+                          _amount(account.balance, account.currency),
+                        ),
+                        _metric(
+                          'Holdings value',
+                          _amount(account.value, widget.baseCurrency),
+                        ),
+                        _metric(
+                          'Portfolio allocation',
+                          _allocation(account.allocation),
+                        ),
+                        _metric(
+                          'Transactions',
+                          account.activitiesCount?.toString() ??
+                              'Not available',
+                        ),
+                        _metric(
+                          'Dividends',
+                          _amount(account.dividends, widget.baseCurrency),
+                        ),
+                        const SizedBox(height: 6),
                       ],
                     ),
                   ),
-                );
-              }
-              return const Center(child: CircularProgressIndicator());
-            }
-            final accounts = snapshot.requireData.accounts;
-            return ListView(
-              key: const ValueKey('accounts-overview-page'),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              children: [
-                Text(
-                  'Accounts (${accounts.length})',
-                  style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Amounts are reported in their indicated currencies.',
-                ),
-                const SizedBox(height: 12),
-                Card(
-                  child: ListTile(
-                    leading: Icon(
-                      widget.selectedAccountId == null
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                    ),
-                    title: const Text('All accounts'),
-                    subtitle: const Text('View the complete portfolio'),
-                    onTap: () => _select(null),
-                  ),
-                ),
-                if (accounts.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('No accounts found.'),
-                  ),
-                for (final account in accounts)
-                  Card(
-                    key: ValueKey('account-${account.id}'),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            leading: Icon(
-                              widget.selectedAccountId == account.id
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked,
-                            ),
-                            title: Text(account.name),
-                            subtitle: Text(
-                              [
-                                if (account.platformName != null)
-                                  account.platformName!,
-                                account.currency,
-                              ].join(' · '),
-                            ),
-                            onTap: () => _select(account),
-                          ),
-                          const Divider(height: 1),
-                          _metric(
-                            'Cash balance',
-                            _amount(account.balance, account.currency),
-                          ),
-                          _metric(
-                            'Holdings value',
-                            _amount(account.value, widget.baseCurrency),
-                          ),
-                          _metric(
-                            'Portfolio allocation',
-                            _allocation(account.allocation),
-                          ),
-                          _metric(
-                            'Transactions',
-                            account.activitiesCount?.toString() ??
-                                'Not available',
-                          ),
-                          _metric(
-                            'Dividends',
-                            _amount(account.dividends, widget.baseCurrency),
-                          ),
-                          const SizedBox(height: 6),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
+            ],
+          );
+        },
       ),
     );
+    if (widget.embedded) {
+      return body;
+    }
+    return Scaffold(appBar: header, body: body);
   }
 
   Widget _metric(String label, String value) => Padding(

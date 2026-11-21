@@ -2,6 +2,23 @@
 
 Spookyfolio is in early development. Entries refer to development Android build numbers, not stable releases. Validation reports distinguish automated checks from on-device checks.
 
+## 0.1.0+24 — 2026-11-21
+
+### Changed
+- Reorganized mobile navigation into Overview, Portfolio, Activity and More.
+- Introduced contextual bottom navigation for Holdings / Accounts and Settings / About.
+- Added hierarchical back navigation to return to the main destinations.
+- Made Accounts a read-only overview, retaining account filtering in the global AppBar.
+- Added a refresh action for account information.
+- Added an About screen with theme-aware branding, app version, repository and license.
+- Shortened the application title to display version and build number.
+
+### Validation
+- Flutter analysis completed without issues.
+- All 73 automated tests passed.
+- Navigation and account views verified on an Android device.
+- The final abbreviated title still requires verification on the device.
+
 ## 0.1.0+23 — 2026-11-21
 
 ### Changed

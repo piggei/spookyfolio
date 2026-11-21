@@ -93,7 +93,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings').last);
+    await tester.tap(find.text('More').last);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('theme-light')));
     await tester.pumpAndSettle();

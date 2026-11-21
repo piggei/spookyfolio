@@ -29,7 +29,7 @@ class _AppVersionTitleState extends State<AppVersionTitle> {
         }
 
         return Text(
-          'Spookyfolio v${info.version} (${info.buildNumber})',
+          'Spookyfolio ${info.version} - ${info.buildNumber}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         );

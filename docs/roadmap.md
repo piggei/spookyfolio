@@ -39,11 +39,15 @@ The bottom navigation should retain four destinations: Overview, Portfolio, Acti
 - Introduced the initial Flutter analysis and test CI; its first run passed on `2d2a194`.
 - Added development documentation and AGPL-3.0 licensing.
 
+## Completed M10 navigation
+
+- Implemented hierarchical mobile navigation with contextual Portfolio and More destinations.
+
 ## Near-term work
 
-- Add dedicated route structure for the agreed navigation model when introducing new sections.
+
 - Expand account and cash workflows without misleading currency aggregation.
-- Analyze advanced indicators and NG-specific functionality before implementing M10.
+- Analyze advanced indicators and NG-specific functionality before implementation.
 - Qualify an Android release variant, including manifest permissions and secure production signing, before distributing signed artifacts.
 - Introduce artifact-build workflows separately from CI and do not auto-publish unqualified builds.
 
