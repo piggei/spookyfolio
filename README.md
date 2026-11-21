@@ -4,7 +4,7 @@ Spookyfolio is a native Flutter mobile client for [Ghostfolio](https://github.co
 
 The app is being developed for Ghostfolio Cloud, self-hosted Ghostfolio, and Ghostfolio-NG. Server-specific features must be enabled according to capabilities actually available from the connected backend.
 
-> **Status:** early development preview (`0.1.0+23`). The codebase is not yet presented as a production-ready or security-audited release. Licensing and public distribution are not yet finalized.
+> **Status:** early development preview (`0.1.0+23`). The codebase is not yet presented as a production-ready or security-audited release. The repository is public and licensed under AGPL-3.0; no production-signed mobile release is available yet.
 
 ## Implemented features
 
@@ -62,4 +62,6 @@ Spookyfolio is a separate mobile client project, not an official Ghostfolio appl
 
 ## License
 
-**Not selected yet.** No open-source license grant is implied by making source code available. The repository's visibility and licensing will be decided before public distribution.
+Spookyfolio is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). It is an independent project and is not affiliated with or endorsed by the Ghostfolio maintainers.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.

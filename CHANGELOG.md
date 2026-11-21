@@ -10,7 +10,8 @@ Spookyfolio is in early development. Entries refer to development Android build 
 
 ### Validation
 - Light and dark splash appearance confirmed on an Android device.
-- Full automated verification of the final build 23 tree is still required before tagging the baseline.
+- The Android app was checked on a device after the build 23 consolidation.
+- The baseline source tree was validated by GitHub Flutter CI (analyze and tests) at infrastructure commit `2d2a194`, which adds only `LICENSE` and the CI workflow to the application baseline `95582ce`. This does not constitute an Android release qualification.
 
 ## 0.1.0+22 — 2026-11-21
 

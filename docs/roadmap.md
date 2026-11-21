@@ -32,15 +32,20 @@ More
 
 The bottom navigation should retain four destinations: Overview, Portfolio, Activity and More. Secondary routes should be introduced only when their backing features exist. Ghostfolio-NG-specific capabilities should be discovered from supported API behavior, not a hardcoded brand string.
 
+## Completed foundations
+
+- Created and published the initial Git baseline `95582ce`, tagged `v0.1.0-dev.23`.
+- Removed the unused build 19 Flutter startup component and resolved analyzer suggestions.
+- Introduced the initial Flutter analysis and test CI; its first run passed on `2d2a194`.
+- Added development documentation and AGPL-3.0 licensing.
+
 ## Near-term work
 
-- Qualify the first Git baseline and documentation; inspect all staged files, including native Gradle wrapper assets.
-- Remove unused build 19 Flutter startup components only after verifying local contents and references.
-- Resolve remaining non-blocking analyzer suggestions.
 - Add dedicated route structure for the agreed navigation model when introducing new sections.
 - Expand account and cash workflows without misleading currency aggregation.
 - Analyze advanced indicators and NG-specific functionality before implementing M10.
-- Introduce GitHub Actions CI for analysis and tests, followed by separately qualified artifact builds. Do not auto-publish from unqualified builds.
+- Qualify an Android release variant, including manifest permissions and secure production signing, before distributing signed artifacts.
+- Introduce artifact-build workflows separately from CI and do not auto-publish unqualified builds.
 
 ## Release process
 
