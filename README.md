@@ -21,7 +21,7 @@ Financial values and performance are retrieved from Ghostfolio. The client does 
 
 ## Current navigation
 
-The initial mobile interface has four destinations: **Overview**, **Holdings**, **Activity**, and **Settings**. Account information is currently available within Settings. A hierarchical navigation model is planned; see [Roadmap](docs/roadmap.md).
+The mobile interface has four main destinations: **Overview**, **Portfolio**, **Activity**, and **More**. Portfolio provides contextual navigation between Holdings and Accounts; More provides Settings and About. The Android back action returns from contextual navigation to the main destinations. See [Roadmap](docs/roadmap.md).
 
 ## Development prerequisites
 

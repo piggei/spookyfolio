@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'app_version_title.dart';
+import 'about_page.dart';
 import 'activity_feed.dart';
 import 'accounts_page.dart';
 import 'portfolio_client.dart';
@@ -195,7 +196,11 @@ class _MobileShellState extends State<MobileShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() => _tab = index),
+        onDestinationSelected: (index) {
+          setState(() => _tab = index);
+          if (index == 1) _openPortfolio();
+          if (index == 3) _openMore();
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.show_chart),
@@ -203,40 +208,14 @@ class _MobileShellState extends State<MobileShell> {
           ),
           NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
-            label: 'Holdings',
+            label: 'Portfolio',
           ),
           NavigationDestination(
             icon: Icon(Icons.swap_horiz),
             label: 'Activity',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            label: 'Settings',
-          ),
+          NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
         ],
-      ),
-    );
-  }
-
-  Future<void> _openAccountOverview(String baseCurrency) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => AccountsPage(
-          serverUrl: widget.serverUrl,
-          jwt: widget.jwt,
-          baseCurrency: baseCurrency,
-          selectedAccountId: _accountId,
-          client: widget.client,
-          onAccountSelected: (account) {
-            final id = account?.id;
-            if (!mounted || id == _accountId) return;
-            setState(() {
-              _accountId = id;
-              _accountName = account?.name;
-              _refresh();
-            });
-          },
-        ),
       ),
     );
   }
@@ -343,6 +322,148 @@ class _MobileShellState extends State<MobileShell> {
       _accountName = name;
       _refresh();
     });
+  }
+
+  // Portfolio replaces the root NavigationBar with its own two destinations.
+  // Popping the route restores the root bar with Portfolio selected.
+  Future<void> _openPortfolio() async {
+    var section = 0;
+    var accountsRefreshRevision = 0;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => StatefulBuilder(
+          builder: (routeContext, updateRoute) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Portfolio'),
+              actions: [
+                IconButton(
+                  tooltip: 'Select account',
+                  icon: const Icon(Icons.filter_list),
+                  onPressed: () async {
+                    await _openAccountSelector();
+                    if (routeContext.mounted) updateRoute(() {});
+                  },
+                ),
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    if (section == 0) {
+                      setState(_refresh);
+                    } else {
+                      accountsRefreshRevision++;
+                    }
+                    updateRoute(() {});
+                  },
+                ),
+              ],
+            ),
+            body: SafeArea(
+              child: FutureBuilder<_Snapshot>(
+                future: _data,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: FilledButton(
+                        onPressed: () {
+                          setState(_refresh);
+                          updateRoute(() {});
+                        },
+                        child: const Text('Retry portfolio'),
+                      ),
+                    );
+                  }
+                  final data = snapshot.requireData;
+                  return section == 0
+                      ? _holdings(data)
+                      : AccountsPage(
+                          serverUrl: widget.serverUrl,
+                          jwt: widget.jwt,
+                          baseCurrency: data.profile.baseCurrency ?? '',
+                          client: widget.client,
+                          embedded: true,
+                          refreshRevision: accountsRefreshRevision,
+                        );
+                },
+              ),
+            ),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: section,
+              onDestinationSelected: (index) =>
+                  updateRoute(() => section = index),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.account_balance_wallet_outlined),
+                  label: 'Holdings',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.account_balance_outlined),
+                  label: 'Accounts',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // More is a second-level route, like Portfolio: one bottom bar at a time.
+  Future<void> _openMore() async {
+    var section = 0;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => StatefulBuilder(
+          builder: (routeContext, updateRoute) => Scaffold(
+            appBar: AppBar(title: Text(section == 0 ? 'Settings' : 'About')),
+            body: SafeArea(
+              child: section == 0
+                  ? FutureBuilder<_Snapshot>(
+                      future: _data,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: FilledButton(
+                              onPressed: () {
+                                setState(_refresh);
+                                updateRoute(() {});
+                              },
+                              child: const Text('Retry settings'),
+                            ),
+                          );
+                        }
+                        return _settings(snapshot.requireData);
+                      },
+                    )
+                  : const SpookyfolioAboutPage(embedded: true),
+            ),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: section,
+              onDestinationSelected: (index) =>
+                  updateRoute(() => section = index),
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.settings_outlined),
+                  label: 'Settings',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.info_outline),
+                  label: 'About',
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _overview(_Snapshot data) {
@@ -530,20 +651,6 @@ class _MobileShellState extends State<MobileShell> {
       ),
       const Divider(),
       const SizedBox(height: 12),
-      ListTile(
-        leading: const Icon(Icons.account_balance),
-        title: const Text('Account overview'),
-        subtitle: const Text('Balances, holdings and allocation'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _openAccountOverview(data.profile.baseCurrency ?? ''),
-      ),
-      ListTile(
-        leading: const Icon(Icons.account_balance_wallet_outlined),
-        title: const Text('Accounts'),
-        subtitle: Text(_accountName ?? 'All accounts'),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: _openAccountSelector,
-      ),
       OutlinedButton.icon(
         onPressed: () async => widget.onSignOut(),
         icon: const Icon(Icons.logout),
