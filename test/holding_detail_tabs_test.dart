@@ -49,7 +49,7 @@ void main() {
     await tester.tap(find.text('Analysis').first);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('holding-analysis-tab')), findsOneWidget);
-    expect(find.text('Current value'), findsOneWidget);
+    expect(find.text('Value'), findsOneWidget);
     expect(requests, 1);
   });
 

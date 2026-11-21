@@ -2,6 +2,18 @@
 
 Spookyfolio is in early development. Entries refer to development Android build numbers, not stable releases. Validation reports distinguish automated checks from on-device checks.
 
+## 0.1.0+25 — 2026-11-22
+
+### Changed
+- Replaced the three holding-analysis metric cards with one compact summary strip.
+- Added a responsive stacked layout for narrow displays and enlarged text.
+- Preserved server-provided value, allocation and return figures.
+
+### Validation
+- Flutter analysis completed without issues.
+- All 75 automated tests passed.
+- Compact summary layout visually approved during Android testing.
+
 ## 0.1.0+24 — 2026-11-21
 
 ### Changed

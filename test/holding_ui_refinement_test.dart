@@ -45,7 +45,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(TabBar), findsOneWidget);
     expect(find.byKey(const ValueKey('holding-analysis-tab')), findsOneWidget);
-    expect(find.text('Current value'), findsOneWidget);
+    expect(find.text('Value'), findsOneWidget);
     await tester.tap(find.text('Asset').first);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('holding-asset-tab')), findsOneWidget);
