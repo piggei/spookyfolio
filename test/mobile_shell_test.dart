@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spookyfolio/mobile_shell.dart';
+import 'package:spookyfolio/return_chart.dart';
 import 'package:spookyfolio/portfolio_client.dart';
 import 'package:spookyfolio/activity_models.dart';
 
@@ -182,5 +183,198 @@ void main() {
     expect(fake.ranges, ['max', 'ytd']);
     expect(fake.profiles, 2);
     expect(fake.details, 2);
+  });
+  testWidgets('M11 swipes between Holdings and Accounts', (tester) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Portfolio').last);
+    await tester.pumpAndSettle();
+
+    final pages = find.byKey(const ValueKey('portfolio-swipe-pages'));
+    expect(pages, findsOneWidget);
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+
+    await tester.drag(pages, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('accounts-overview-page')),
+      findsOneWidget,
+    );
+    expect(
+      find.byType(NavigationBar).last.evaluate().single.widget,
+      isA<NavigationBar>().having(
+        (bar) => bar.selectedIndex,
+        'selectedIndex',
+        1,
+      ),
+    );
+
+    await tester.drag(pages, const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Overview'), findsOneWidget);
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+    expect(fake.ranges, ['max']);
+  });
+
+  testWidgets('M11 swipes between Settings and About', (tester) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('More').last);
+    await tester.pumpAndSettle();
+
+    final pages = find.byKey(const ValueKey('more-swipe-pages'));
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.drag(pages, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('about-page')), findsOneWidget);
+    expect(find.text('About').first, findsWidgets);
+
+    await tester.drag(pages, const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Overview'), findsOneWidget);
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+  });
+
+  testWidgets('root swipe follows hierarchical navigation', (tester) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
+
+    // Swipe left from Overview into Portfolio.
+    await tester.drag(find.text('Portfolio value'), const Offset(-350, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+    expect(find.text('Overview'), findsNothing);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Portfolio remains the selected root destination.
+    expect(
+      (tester.widget<NavigationBar>(find.byType(NavigationBar))).selectedIndex,
+      1,
+    );
+
+    // Swipe left from Portfolio to Activity.
+    await tester.drag(find.text('Holdings (0)'), const Offset(-350, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
+
+    // Swipe left from Activity into More.
+    await tester.dragFrom(const Offset(350, 140), const Offset(-350, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Swipe right from More back to Activity.
+    await tester.dragFrom(const Offset(350, 140), const Offset(350, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
+
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+    expect(fake.ranges, ['max']);
+  });
+
+  testWidgets('chart horizontal drag does not change root destination', (
+    tester,
+  ) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final chart = find.descendant(
+      of: find.byType(InteractiveReturnChart),
+      matching: find.byType(GestureDetector),
+    );
+
+    expect(chart, findsOneWidget);
+
+    final rect = tester.getRect(chart);
+
+    await tester.dragFrom(
+      Offset(rect.left + 30, rect.center.dy),
+      Offset(rect.width - 60, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chart-selected-value')), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
   });
 }
