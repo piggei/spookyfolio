@@ -547,8 +547,8 @@ class _MobileShellState extends State<MobileShell> {
     });
   }
 
-  // Portfolio replaces the root NavigationBar with its own two destinations.
-  // Popping the route restores the root bar with Portfolio selected.
+  // Portfolio uses contextual navigation within the root PageView.
+  // Back restores the originating root destination.
   Widget _portfolioContent(_Snapshot data) {
     return PageView(
       key: const ValueKey('portfolio-swipe-pages'),
