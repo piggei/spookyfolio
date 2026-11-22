@@ -14,7 +14,7 @@ Spookyfolio is in early development. Entries refer to development Android build 
 
 ### Validation
 - Flutter navigation, gesture, chart and Activity pagination regression tests passed.
-- Full Flutter analysis and automated test suite to be confirmed after final version update.
+- Flutter analysis completed without issues; all 82 automated tests passed.
 - Final navigation behavior confirmed on an Android device.
 
 ## 0.1.0+25 — 2026-11-22
