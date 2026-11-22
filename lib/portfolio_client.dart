@@ -281,6 +281,84 @@ int? _accountCount(Object? raw) {
   return raw;
 }
 
+class PortfolioAccountBalance {
+  const PortfolioAccountBalance({
+    required this.id,
+    required this.accountId,
+    required this.date,
+    this.value,
+    this.valueInBaseCurrency,
+    this.comment,
+  });
+
+  final String id;
+  final String accountId;
+  final DateTime date;
+  final double? value;
+  final double? valueInBaseCurrency;
+  final String? comment;
+
+  factory PortfolioAccountBalance.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    final accountId = json['accountId'];
+    final rawDate = json['date'];
+
+    if (id is! String ||
+        id.isEmpty ||
+        accountId is! String ||
+        accountId.isEmpty ||
+        rawDate is! String) {
+      throw const FormatException('Invalid account balance');
+    }
+
+    final date = DateTime.tryParse(rawDate);
+
+    if (date == null) {
+      throw const FormatException('Invalid account balance date');
+    }
+
+    final comment = json['comment'];
+
+    if (comment != null && comment is! String) {
+      throw const FormatException('Invalid account balance comment');
+    }
+
+    return PortfolioAccountBalance(
+      id: id,
+      accountId: accountId,
+      date: date,
+      value: _optionalNumber(json, 'value'),
+      valueInBaseCurrency: _optionalNumber(json, 'valueInBaseCurrency'),
+      comment: comment as String?,
+    );
+  }
+}
+
+class PortfolioAccountBalances {
+  const PortfolioAccountBalances(this.balances);
+
+  final List<PortfolioAccountBalance> balances;
+
+  factory PortfolioAccountBalances.fromJson(Map<String, dynamic> json) {
+    final rows = json['balances'];
+
+    if (rows is! List) {
+      throw const FormatException('Invalid account balances response');
+    }
+
+    return PortfolioAccountBalances(
+      List.unmodifiable(
+        rows.map((item) {
+          if (item is! Map<String, dynamic>) {
+            throw const FormatException('Invalid account balance item');
+          }
+          return PortfolioAccountBalance.fromJson(item);
+        }),
+      ),
+    );
+  }
+}
+
 class PortfolioAccountsCatalog {
   const PortfolioAccountsCatalog(this.accounts);
   final List<PortfolioAccount> accounts;
@@ -318,6 +396,36 @@ class PortfolioClient {
   }) async {
     final json = await _get(serverUrl, jwt, '/api/v1/user');
     return GhostfolioProfile.fromJson(json);
+  }
+
+  Future<PortfolioAccount> getAccountById({
+    required String serverUrl,
+    required String jwt,
+    required String accountId,
+  }) async => PortfolioAccount.fromJson(
+    await _get(serverUrl, jwt, '/api/v1/accounts/${_accountId(accountId)}'),
+  );
+
+  Future<PortfolioAccountBalances> getAccountBalances({
+    required String serverUrl,
+    required String jwt,
+    required String accountId,
+  }) async {
+    final validatedId = _accountId(accountId);
+
+    final result = PortfolioAccountBalances.fromJson(
+      await _get(serverUrl, jwt, '/api/v1/accounts/$validatedId/balances'),
+    );
+
+    for (final balance in result.balances) {
+      if (balance.accountId != validatedId) {
+        throw const FormatException(
+          'Account balance belongs to a different account',
+        );
+      }
+    }
+
+    return result;
   }
 
   Future<PortfolioAccountsCatalog> getAccountsCatalog({

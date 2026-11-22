@@ -2,6 +2,25 @@
 
 Spookyfolio is in early development. Entries refer to development Android build numbers, not stable releases. Validation reports distinguish automated checks from on-device checks.
 
+## 0.1.0+27 — 2026-11-22
+
+### Added
+- Added a read-only account detail screen with Overview, Balances and Activity sections.
+- Added account balance history with recorded dates, values and optional comments.
+- Added account-specific financial activities with lazy loading and pagination.
+- Added native swipe navigation between account detail sections.
+- Added account detail and balance REST endpoints with response validation.
+
+### Fixed
+- Preserved the current navigation destination when changing the global account filter.
+- Preserved contextual navigation during portfolio refresh, API errors and retries.
+- Prevented stale portfolio snapshots from being reused across server or session changes.
+
+### Validation
+- Flutter analysis completed without issues.
+- All 101 automated tests passed.
+- Account detail navigation, balances, activity and account filtering verified on Android.
+
 ## 0.1.0+26 — 2026-11-22
 
 ### Changed

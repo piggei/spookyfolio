@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'account_detail_page.dart';
 import 'portfolio_client.dart';
 
 /// Read-only account overview. Values are supplied by Ghostfolio, never
@@ -129,6 +130,18 @@ class _AccountsPageState extends State<AccountsPage> {
                                 account.platformName!,
                               account.currency,
                             ].join(' · '),
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => AccountDetailPage(
+                                account: account,
+                                baseCurrency: widget.baseCurrency,
+                                serverUrl: widget.serverUrl,
+                                jwt: widget.jwt,
+                                client: widget.client,
+                              ),
+                            ),
                           ),
                         ),
                         const Divider(height: 1),
