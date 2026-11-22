@@ -37,6 +37,8 @@ class _MobileShellState extends State<MobileShell> {
   static const _ranges = <String>['1d', 'wtd', 'mtd', 'ytd', '1y', '5y', 'max'];
 
   late Future<_Snapshot> _data;
+  _Snapshot? _lastSnapshot;
+  int _sessionRevision = 0;
   int _tab = 0;
   late PageController _rootPages;
   late final PageController _portfolioPages;
@@ -91,6 +93,8 @@ class _MobileShellState extends State<MobileShell> {
       _accountId = null;
       _accountName = null;
       _accountsFuture = null;
+      _lastSnapshot = null;
+      _sessionRevision++;
       _refresh();
     }
   }
@@ -189,13 +193,24 @@ class _MobileShellState extends State<MobileShell> {
         ),
         body: SafeArea(
           child: FutureBuilder<_Snapshot>(
+            key: ValueKey('portfolio-snapshot-$_sessionRevision'),
             future: _data,
             builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
+              final loading = snapshot.connectionState != ConnectionState.done;
+
+              if (!loading && snapshot.hasData) {
+                _lastSnapshot = snapshot.requireData;
+              }
+
+              final displayData = snapshot.hasData
+                  ? snapshot.requireData
+                  : _lastSnapshot;
+
+              if (loading && displayData == null) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (snapshot.hasError) {
+              if (snapshot.hasError && displayData == null) {
                 final error = snapshot.error;
                 final message = error is PortfolioApiException
                     ? error.message
@@ -221,42 +236,72 @@ class _MobileShellState extends State<MobileShell> {
                 );
               }
 
-              final data = snapshot.requireData;
+              final data = displayData!;
 
-              return Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 680),
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: _onRootScrollEnd,
-                    child: PageView(
-                      key: const ValueKey('root-swipe-pages'),
-                      controller: _rootPages,
-                      physics: _contextTab == null
-                          ? const PageScrollPhysics()
-                          : const NeverScrollableScrollPhysics(),
-                      onPageChanged: (index) {
-                        if (_tab != index) {
-                          setState(() => _tab = index);
-                        }
-                      },
-                      children: [
-                        _overview(data),
-                        _portfolioContent(data),
-                        _RootKeepAlive(
-                          child: ActivityFeed(
-                            key: _activityKey,
-                            serverUrl: widget.serverUrl,
-                            jwt: widget.jwt,
-                            client: widget.client,
-                            active: _tab == 2,
-                            accountId: _accountId,
-                          ),
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 680),
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: _onRootScrollEnd,
+                        child: PageView(
+                          key: const ValueKey('root-swipe-pages'),
+                          controller: _rootPages,
+                          physics: _contextTab == null
+                              ? const PageScrollPhysics()
+                              : const NeverScrollableScrollPhysics(),
+                          onPageChanged: (index) {
+                            if (_tab != index) {
+                              setState(() => _tab = index);
+                            }
+                          },
+                          children: [
+                            _overview(data),
+                            _portfolioContent(data),
+                            _RootKeepAlive(
+                              child: ActivityFeed(
+                                key: _activityKey,
+                                serverUrl: widget.serverUrl,
+                                jwt: widget.jwt,
+                                client: widget.client,
+                                active: _tab == 2,
+                                accountId: _accountId,
+                              ),
+                            ),
+                            _moreContent(data),
+                          ],
                         ),
-                        _moreContent(data),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  if (loading || snapshot.hasError)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: Theme.of(context).colorScheme.surface,
+                        child: Center(
+                          child: snapshot.hasError
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.cloud_off_outlined),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Could not update portfolio data.',
+                                    ),
+                                    const SizedBox(height: 12),
+                                    FilledButton(
+                                      onPressed: () => setState(_refresh),
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                )
+                              : const CircularProgressIndicator(),
+                        ),
+                      ),
+                    ),
+                ],
               );
             },
           ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:spookyfolio/activity_feed.dart';
@@ -108,6 +110,47 @@ class _PaginatedActivityClient extends _FakePortfolioClient {
       count: 2,
     );
   }
+}
+
+class _DelayedAccountFilterClient extends _FakePortfolioClient {
+  static const accountId = '11111111-2222-3333-4444-555555555555';
+
+  final filteredDetails = Completer<PortfolioSnapshot>();
+  final failedDetails = Completer<PortfolioSnapshot>();
+  bool failFirstFilteredRequest = false;
+  int filteredRequests = 0;
+
+  @override
+  Future<PortfolioAccountsCatalog> getAccountsCatalog({
+    required String serverUrl,
+    required String jwt,
+  }) async => const PortfolioAccountsCatalog([
+    PortfolioAccount(id: accountId, name: 'Test account', currency: 'EUR'),
+  ]);
+
+  @override
+  Future<PortfolioSnapshot> getDetailsForAccount({
+    required String serverUrl,
+    required String jwt,
+    required String accountId,
+  }) {
+    filteredRequests++;
+    expect(accountId, _DelayedAccountFilterClient.accountId);
+
+    if (failFirstFilteredRequest && filteredRequests == 1) {
+      return failedDetails.future;
+    }
+
+    return filteredDetails.future;
+  }
+
+  @override
+  Future<PortfolioHistory> getHistoryForAccount({
+    required String serverUrl,
+    required String jwt,
+    required String accountId,
+    String? range,
+  }) async => const PortfolioHistory([]);
 }
 
 void main() {
@@ -588,5 +631,247 @@ void main() {
     expect(fake.profiles, 1);
     expect(fake.details, 1);
     expect(fake.ranges, ['max']);
+  });
+
+  testWidgets('account filter preserves Portfolio Accounts navigation', (
+    tester,
+  ) async {
+    final api = _DelayedAccountFilterClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: api,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Portfolio').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Accounts').last);
+    await tester.pumpAndSettle();
+
+    final rootPages = find.byKey(const ValueKey('root-swipe-pages'));
+    final portfolioPages = find.byKey(const ValueKey('portfolio-swipe-pages'));
+
+    expect(rootPages, findsOneWidget);
+    expect(portfolioPages, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('accounts-overview-page')),
+      findsOneWidget,
+    );
+
+    final rootController = tester.widget<PageView>(rootPages).controller!;
+    final portfolioController = tester
+        .widget<PageView>(portfolioPages)
+        .controller!;
+
+    expect(rootController.page, closeTo(1, 0.01));
+    expect(portfolioController.page, closeTo(1, 0.01));
+
+    // Select an account and keep its API response pending.
+    await tester.tap(find.byTooltip('Select account'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Test account').last);
+    await tester.pump();
+    await tester.pump();
+
+    expect(api.filteredRequests, 1);
+
+    // Navigation must remain mounted during the request.
+    expect(rootPages, findsOneWidget);
+    expect(portfolioPages, findsOneWidget);
+
+    expect(rootController.page, closeTo(1, 0.01));
+    expect(portfolioController.page, closeTo(1, 0.01));
+
+    expect(
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar).last)
+          .selectedIndex,
+      1,
+    );
+
+    // Complete the request with the selected account's data.
+    api.filteredDetails.complete(const PortfolioSnapshot(holdings: []));
+
+    await tester.pumpAndSettle();
+
+    expect(rootPages, findsOneWidget);
+    expect(portfolioPages, findsOneWidget);
+
+    expect(rootController.page, closeTo(1, 0.01));
+    expect(portfolioController.page, closeTo(1, 0.01));
+
+    expect(
+      find.byKey(const ValueKey('accounts-overview-page')),
+      findsOneWidget,
+    );
+
+    expect(
+      tester
+          .widget<NavigationBar>(find.byType(NavigationBar).last)
+          .selectedIndex,
+      1,
+    );
+
+    expect(find.text('Portfolio'), findsOneWidget);
+  });
+
+  testWidgets(
+    'account filter failure and retry preserve contextual navigation',
+    (tester) async {
+      final api = _DelayedAccountFilterClient()
+        ..failFirstFilteredRequest = true;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MobileShell(
+            serverUrl: 'https://ghostfol.io',
+            jwt: 'jwt-test',
+            client: api,
+            onSignOut: () async {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Portfolio').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Accounts').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Select account'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Test account').last);
+      await tester.pump();
+
+      expect(api.filteredRequests, 1);
+
+      api.failedDetails.completeError(
+        const PortfolioApiException('Simulated server error', statusCode: 500),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(api.filteredRequests, 1);
+
+      final rootPages = find.byKey(const ValueKey('root-swipe-pages'));
+      final portfolioPages = find.byKey(
+        const ValueKey('portfolio-swipe-pages'),
+      );
+
+      // An API error must not dismantle the navigation.
+      expect(rootPages, findsOneWidget);
+      expect(portfolioPages, findsOneWidget);
+
+      expect(
+        tester.widget<PageView>(rootPages).controller!.page,
+        closeTo(1, 0.01),
+      );
+      expect(
+        tester.widget<PageView>(portfolioPages).controller!.page,
+        closeTo(1, 0.01),
+      );
+
+      expect(
+        tester
+            .widget<NavigationBar>(find.byType(NavigationBar).last)
+            .selectedIndex,
+        1,
+      );
+
+      expect(find.text('Could not update portfolio data.'), findsOneWidget);
+
+      // Retry the failed request.
+      await tester.tap(find.text('Retry'));
+      await tester.pump();
+
+      expect(api.filteredRequests, 2);
+      expect(rootPages, findsOneWidget);
+      expect(portfolioPages, findsOneWidget);
+
+      api.filteredDetails.complete(const PortfolioSnapshot(holdings: []));
+
+      await tester.pumpAndSettle();
+
+      expect(rootPages, findsOneWidget);
+      expect(portfolioPages, findsOneWidget);
+
+      expect(
+        tester.widget<PageView>(rootPages).controller!.page,
+        closeTo(1, 0.01),
+      );
+      expect(
+        tester.widget<PageView>(portfolioPages).controller!.page,
+        closeTo(1, 0.01),
+      );
+
+      expect(
+        find.byKey(const ValueKey('accounts-overview-page')),
+        findsOneWidget,
+      );
+
+      expect(
+        tester
+            .widget<NavigationBar>(find.byType(NavigationBar).last)
+            .selectedIndex,
+        1,
+      );
+    },
+  );
+
+  testWidgets('session change isolates portfolio snapshot', (tester) async {
+    final api = _FakePortfolioClient();
+
+    Widget app(String jwt) => MaterialApp(
+      home: MobileShell(
+        serverUrl: 'https://ghostfol.io',
+        jwt: jwt,
+        client: api,
+        onSignOut: () async {},
+      ),
+    );
+
+    await tester.pumpWidget(app('first-session'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
+
+    final previousBuilder = tester.widget<FutureBuilder>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is FutureBuilder &&
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'portfolio-snapshot-',
+            ),
+      ),
+    );
+
+    await tester.pumpWidget(app('second-session'));
+    await tester.pump();
+
+    final currentBuilder = tester.widget<FutureBuilder>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is FutureBuilder &&
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'portfolio-snapshot-',
+            ),
+      ),
+    );
+
+    expect(currentBuilder.key, isNot(previousBuilder.key));
+    expect(api.profiles, 2);
   });
 }
