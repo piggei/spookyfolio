@@ -162,6 +162,7 @@ class _HoldingDetailPageState extends State<HoldingDetailPage>
                             _analysisTab(item),
                             _assetTab(item),
                             _ActivityTab(
+                              baseCurrency: widget.baseCurrency,
                               enabled: _transactionsOpened,
                               serverUrl: widget.serverUrl,
                               jwt: widget.jwt,
@@ -315,6 +316,7 @@ class _HoldingDetailPageState extends State<HoldingDetailPage>
 /// Retains downloaded transactions when moving between detail tabs.
 class _ActivityTab extends StatefulWidget {
   const _ActivityTab({
+    required this.baseCurrency,
     required this.enabled,
     required this.serverUrl,
     required this.jwt,
@@ -323,6 +325,7 @@ class _ActivityTab extends StatefulWidget {
     required this.client,
   });
 
+  final String baseCurrency;
   final bool enabled;
   final String serverUrl;
   final String jwt;
@@ -355,6 +358,7 @@ class _ActivityTabState extends State<_ActivityTab>
       padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
       children: [
         HoldingTransactions(
+          baseCurrency: widget.baseCurrency,
           serverUrl: widget.serverUrl,
           jwt: widget.jwt,
           dataSource: widget.dataSource!,

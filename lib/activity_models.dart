@@ -39,6 +39,17 @@ class PortfolioActivity {
     this.unitPrice,
     this.fee,
     this.value,
+    this.dataSource,
+    this.assetCurrency,
+    this.isin,
+    this.accountId,
+    this.comment,
+    this.valueInBaseCurrency,
+    this.feeInBaseCurrency,
+    this.feeInAssetProfileCurrency,
+    this.unitPriceInAssetProfileCurrency,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
@@ -52,6 +63,17 @@ class PortfolioActivity {
   final double? unitPrice;
   final double? fee;
   final double? value;
+  final String? dataSource;
+  final String? assetCurrency;
+  final String? isin;
+  final String? accountId;
+  final String? comment;
+  final double? valueInBaseCurrency;
+  final double? feeInBaseCurrency;
+  final double? feeInAssetProfileCurrency;
+  final double? unitPriceInAssetProfileCurrency;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   factory PortfolioActivity.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -85,6 +107,19 @@ class PortfolioActivity {
       return value.toDouble();
     }
 
+    DateTime? optDate(String key) {
+      final value = json[key];
+      if (value == null) return null;
+      if (value is! String) {
+        throw FormatException('Invalid activity date field: $key');
+      }
+      final parsed = DateTime.tryParse(value);
+      if (parsed == null) {
+        throw FormatException('Invalid activity date field: $key');
+      }
+      return parsed;
+    }
+
     return PortfolioActivity(
       id: id,
       date: date,
@@ -97,6 +132,19 @@ class PortfolioActivity {
       unitPrice: optNumber('unitPrice'),
       fee: optNumber('fee'),
       value: optNumber('value'),
+      dataSource: optString(asset?['dataSource']),
+      assetCurrency: optString(asset?['currency']),
+      isin: optString(asset?['isin']),
+      accountId: optString(json['accountId']),
+      comment: optString(json['comment']),
+      valueInBaseCurrency: optNumber('valueInBaseCurrency'),
+      feeInBaseCurrency: optNumber('feeInBaseCurrency'),
+      feeInAssetProfileCurrency: optNumber('feeInAssetProfileCurrency'),
+      unitPriceInAssetProfileCurrency: optNumber(
+        'unitPriceInAssetProfileCurrency',
+      ),
+      createdAt: optDate('createdAt'),
+      updatedAt: optDate('updatedAt'),
     );
   }
 }

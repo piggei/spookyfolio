@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'server_client.dart';
 import 'holding_detail_data.dart';
+import 'asset_lookup_models.dart';
 import 'activity_models.dart';
 
 class PortfolioApiException implements Exception {
@@ -529,6 +530,102 @@ class PortfolioClient {
       range: range,
     );
     return PortfolioHistory.fromJson(json);
+  }
+
+  Future<AssetLookupResults> lookupAssets({
+    required String serverUrl,
+    required String jwt,
+    required String query,
+  }) async {
+    final search = query.trim();
+
+    if (search.isEmpty) {
+      return const AssetLookupResults([]);
+    }
+
+    if (search.length > 255 || search.contains(RegExp(r'[\r\n]'))) {
+      throw const FormatException('Invalid asset search query');
+    }
+
+    return AssetLookupResults.fromJson(
+      await _get(
+        serverUrl,
+        jwt,
+        '/api/v1/symbols/lookup',
+        queryParameters: {'query': search},
+      ),
+    );
+  }
+
+  Future<ActivityBatch> getFilteredActivities({
+    required String serverUrl,
+    required String jwt,
+    String? accountId,
+    String? dataSource,
+    String? symbol,
+    int skip = 0,
+    int take = 40,
+  }) async {
+    if (skip < 0 || take < 1 || take > 100) {
+      throw const FormatException('Invalid activity pagination');
+    }
+
+    if ((dataSource == null) != (symbol == null)) {
+      throw const FormatException(
+        'Asset filtering requires dataSource and symbol',
+      );
+    }
+
+    if (dataSource != null &&
+        (!RegExp(r'^[A-Za-z0-9_]+$').hasMatch(dataSource) ||
+            symbol!.trim().isEmpty ||
+            symbol.contains(RegExp(r'[\r\n]')))) {
+      throw const FormatException('Invalid activity asset filter');
+    }
+
+    final query = <String, String>{
+      'skip': '$skip',
+      'take': '$take',
+      'sortColumn': 'date',
+      'sortDirection': 'desc',
+    };
+
+    if (accountId != null) {
+      query['accounts'] = _accountId(accountId);
+    }
+
+    if (dataSource != null) {
+      query['dataSource'] = dataSource;
+      query['symbol'] = symbol!;
+    }
+
+    return ActivityBatch.fromJson(
+      await _get(serverUrl, jwt, '/api/v1/activities', queryParameters: query),
+    );
+  }
+
+  Future<PortfolioActivity> getActivityById({
+    required String serverUrl,
+    required String jwt,
+    required String activityId,
+  }) async {
+    final validId = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+    );
+
+    if (!validId.hasMatch(activityId)) {
+      throw const FormatException('Invalid activity ID');
+    }
+
+    final activity = PortfolioActivity.fromJson(
+      await _get(serverUrl, jwt, '/api/v1/activities/$activityId'),
+    );
+
+    if (activity.id != activityId) {
+      throw const FormatException('Activity response ID mismatch');
+    }
+
+    return activity;
   }
 
   Future<ActivityBatch> getActivities({

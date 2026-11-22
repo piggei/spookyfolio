@@ -2,6 +2,22 @@
 
 Spookyfolio is in early development. Entries refer to development Android build numbers, not stable releases. Validation reports distinguish automated checks from on-device checks.
 
+## 0.1.0+28 — 2026-11-22
+
+### Added
+- Added read-only transaction detail pages accessible from Activity, account details and holding transactions.
+- Added extended transaction information, including account, asset identifiers, comments and converted monetary values.
+- Added remote asset lookup and a temporary asset filter in the main Activity section.
+- Combined asset filtering with the global account filter.
+- Preserved Activity state when opening transaction details and reset temporary asset filters when leaving Activity or changing accounts.
+- Updated the application description to "Alternative native mobile client for Ghostfolio."
+
+### Validation
+- Flutter analysis completed without issues.
+- All 141 automated tests passed.
+- Android debug APK compiled successfully.
+- Transaction details, asset filtering, account filtering and navigation verified on an Android device.
+
 ## 0.1.0+27 — 2026-11-22
 
 ### Added
