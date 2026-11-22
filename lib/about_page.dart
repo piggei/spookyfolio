@@ -68,7 +68,7 @@ class SpookyfolioAboutPage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               const Text(
-                'Independent mobile client for Ghostfolio.',
+                'Alternative native mobile client for Ghostfolio.',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),

@@ -336,6 +336,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
             _AccountActivityKeepAlive(
               child: ActivityFeed(
                 key: _activityKey,
+                baseCurrency: widget.baseCurrency,
                 serverUrl: widget.serverUrl,
                 jwt: widget.jwt,
                 accountId: widget.account.id,

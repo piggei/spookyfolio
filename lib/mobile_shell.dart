@@ -263,6 +263,8 @@ class _MobileShellState extends State<MobileShell> {
                             _RootKeepAlive(
                               child: ActivityFeed(
                                 key: _activityKey,
+                                enableAssetFilter: true,
+                                baseCurrency: data.profile.baseCurrency ?? '',
                                 serverUrl: widget.serverUrl,
                                 jwt: widget.jwt,
                                 client: widget.client,

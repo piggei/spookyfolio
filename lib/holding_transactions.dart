@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'activity_detail_page.dart';
 import 'activity_feed.dart';
 import 'activity_models.dart';
 import 'portfolio_client.dart';
@@ -12,6 +13,7 @@ class HoldingTransactions extends StatefulWidget {
     required this.jwt,
     required this.dataSource,
     required this.symbol,
+    this.baseCurrency = '',
     this.client,
   });
 
@@ -19,6 +21,7 @@ class HoldingTransactions extends StatefulWidget {
   final String jwt;
   final String dataSource;
   final String symbol;
+  final String baseCurrency;
   final PortfolioClient? client;
 
   @override
@@ -59,6 +62,20 @@ class _HoldingTransactionsState extends State<HoldingTransactions> {
       _error = null;
       _load();
     }
+  }
+
+  Future<void> _openActivity(PortfolioActivity activity) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ActivityDetailPage(
+          activityId: activity.id,
+          serverUrl: widget.serverUrl,
+          jwt: widget.jwt,
+          baseCurrency: widget.baseCurrency,
+          client: widget.client,
+        ),
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -119,7 +136,8 @@ class _HoldingTransactionsState extends State<HoldingTransactions> {
           padding: EdgeInsets.symmetric(vertical: 12),
           child: Text('No transactions for this asset.'),
         ),
-      for (final item in _items) ActivityCard(activity: item),
+      for (final item in _items)
+        ActivityCard(activity: item, onTap: () => _openActivity(item)),
       if (_error != null) ...[
         Text(
           _error!,
