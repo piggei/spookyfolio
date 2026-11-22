@@ -2,6 +2,21 @@
 
 Spookyfolio is in early development. Entries refer to development Android build numbers, not stable releases. Validation reports distinguish automated checks from on-device checks.
 
+## 0.1.0+26 — 2026-11-22
+
+### Changed
+- Added native horizontal swipe navigation across Overview, Portfolio, Activity and More.
+- Added swipe navigation within Holdings / Accounts and Settings / About.
+- Unified hierarchical navigation without duplicate contextual routes or screen transitions.
+- Restored the originating main destination when leaving Portfolio or More with Android Back.
+- Preserved Activity pagination and cached data across navigation.
+- Kept the interactive performance chart's horizontal gestures independent of page navigation.
+
+### Validation
+- Flutter navigation, gesture, chart and Activity pagination regression tests passed.
+- Flutter analysis completed without issues; all 82 automated tests passed.
+- Final navigation behavior confirmed on an Android device.
+
 ## 0.1.0+25 — 2026-11-22
 
 ### Changed

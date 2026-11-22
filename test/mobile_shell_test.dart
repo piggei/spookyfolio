@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:spookyfolio/activity_feed.dart';
 import 'package:spookyfolio/mobile_shell.dart';
+import 'package:spookyfolio/return_chart.dart';
 import 'package:spookyfolio/portfolio_client.dart';
 import 'package:spookyfolio/activity_models.dart';
 
@@ -71,6 +73,40 @@ class _FakePortfolioClient extends PortfolioClient {
         },
       ],
     });
+  }
+}
+
+class _PaginatedActivityClient extends _FakePortfolioClient {
+  final requestedOffsets = <int>[];
+
+  @override
+  Future<ActivityBatch> getActivities({
+    required String serverUrl,
+    required String jwt,
+    int skip = 0,
+    int take = 40,
+  }) async {
+    requestedOffsets.add(skip);
+
+    if (skip >= 2) {
+      return const ActivityBatch(activities: [], count: 2);
+    }
+
+    return ActivityBatch(
+      activities: [
+        PortfolioActivity(
+          id: 'activity-$skip',
+          date: DateTime.utc(2026, 11, 20 - skip),
+          type: 'BUY',
+          symbol: 'TEST',
+          currency: 'EUR',
+          quantity: 1,
+          unitPrice: 10,
+          value: 10,
+        ),
+      ],
+      count: 2,
+    );
   }
 }
 
@@ -182,5 +218,375 @@ void main() {
     expect(fake.ranges, ['max', 'ytd']);
     expect(fake.profiles, 2);
     expect(fake.details, 2);
+  });
+  testWidgets('M11 swipes between Holdings and Accounts', (tester) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Portfolio').last);
+    await tester.pumpAndSettle();
+
+    final pages = find.byKey(const ValueKey('portfolio-swipe-pages'));
+    expect(pages, findsOneWidget);
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+
+    await tester.drag(pages, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('accounts-overview-page')),
+      findsOneWidget,
+    );
+    expect(
+      find.byType(NavigationBar).last.evaluate().single.widget,
+      isA<NavigationBar>().having(
+        (bar) => bar.selectedIndex,
+        'selectedIndex',
+        1,
+      ),
+    );
+
+    await tester.drag(pages, const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Overview'), findsOneWidget);
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+    expect(fake.ranges, ['max']);
+  });
+
+  testWidgets('M11 swipes between Settings and About', (tester) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('More').last);
+    await tester.pumpAndSettle();
+
+    final pages = find.byKey(const ValueKey('more-swipe-pages'));
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.drag(pages, const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('about-page')), findsOneWidget);
+    expect(find.text('About').first, findsWidgets);
+
+    await tester.drag(pages, const Offset(500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Overview'), findsOneWidget);
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+  });
+
+  testWidgets('root swipe follows hierarchical navigation', (tester) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
+
+    // Swipe left from Overview into Portfolio.
+    await tester.dragFrom(const Offset(400, 140), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+    expect(find.text('Overview'), findsNothing);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Back from Portfolio restores Overview.
+    expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+
+    // Navigate from Overview to Activity using the root menu.
+    await tester.tap(find.text('Activity').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
+
+    // Swipe left from Activity into More.
+    await tester.dragFrom(const Offset(400, 140), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Back from More restores Activity, without another swipe.
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      2,
+    );
+    expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
+
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+    expect(fake.ranges, ['max']);
+  });
+
+  testWidgets('chart horizontal drag does not change root destination', (
+    tester,
+  ) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final chart = find.descendant(
+      of: find.byType(InteractiveReturnChart),
+      matching: find.byType(GestureDetector),
+    );
+
+    expect(chart, findsOneWidget);
+
+    final rect = tester.getRect(chart);
+
+    await tester.dragFrom(
+      Offset(rect.left + 30, rect.center.dy),
+      Offset(rect.width - 60, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
+    expect(find.byKey(const ValueKey('chart-selected-value')), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+  });
+
+  testWidgets('root PageView follows finger before release', (tester) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pages = find.byKey(const ValueKey('root-swipe-pages'));
+    expect(pages, findsOneWidget);
+
+    final controller = tester.widget<PageView>(pages).controller!;
+    expect(controller.page, 0);
+
+    final gesture = await tester.startGesture(const Offset(400, 140));
+
+    // First movement allows Flutter to resolve the gesture arena.
+    await gesture.moveBy(const Offset(-60, 0));
+    await tester.pump();
+
+    // The next movement must scroll the page while the finger is down.
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+
+    final intermediate = controller.page!;
+
+    expect(intermediate, greaterThan(0));
+    expect(intermediate, lessThan(1));
+
+    // The contextual route must not open during the drag.
+    expect(find.byType(NavigationBar), findsOneWidget);
+
+    await gesture.moveBy(const Offset(-380, 0));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(controller.page, 1);
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+  });
+
+  testWidgets('Activity pagination survives root page navigation', (
+    tester,
+  ) async {
+    final fake = _PaginatedActivityClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Activity loads lazily.
+    expect(fake.requestedOffsets, isEmpty);
+
+    await tester.tap(find.text('Activity').last);
+    await tester.pumpAndSettle();
+
+    expect(fake.requestedOffsets, [0]);
+    expect(find.text('Activity (2)'), findsOneWidget);
+    expect(find.text('Load more (1 of 2)'), findsOneWidget);
+
+    await tester.tap(find.text('Load more (1 of 2)'));
+    await tester.pumpAndSettle();
+
+    expect(fake.requestedOffsets, [0, 1]);
+    expect(find.text('Load more (1 of 2)'), findsNothing);
+    expect(find.byType(ActivityCard), findsNWidgets(2));
+
+    // Leave Activity and return without refreshing its data.
+    await tester.tap(find.text('Overview').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Activity').last);
+    await tester.pumpAndSettle();
+
+    expect(fake.requestedOffsets, [0, 1]);
+    expect(find.text('Activity (2)'), findsOneWidget);
+    expect(find.byType(ActivityCard), findsNWidgets(2));
+
+    // Main portfolio data must not be fetched again.
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+    expect(fake.ranges, ['max']);
+  });
+
+  testWidgets('contextual Back restores origin after direct navigation', (
+    tester,
+  ) async {
+    final fake = _FakePortfolioClient();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MobileShell(
+          serverUrl: 'https://ghostfol.io',
+          jwt: 'jwt-test',
+          client: fake,
+          onSignOut: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> expectRoot(int index, String pageKey) async {
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        index,
+      );
+
+      final pages = find.byKey(const ValueKey('root-swipe-pages'));
+      expect(pages, findsOneWidget);
+
+      final controller = tester.widget<PageView>(pages).controller!;
+      expect(controller.page, closeTo(index.toDouble(), 0.01));
+      expect(find.byKey(ValueKey(pageKey)), findsOneWidget);
+    }
+
+    // Jump from Overview to More across intermediate destinations.
+    await tester.tap(find.text('More').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await expectRoot(0, 'overview-page');
+
+    // Open Portfolio directly from Overview.
+    await tester.tap(find.text('Portfolio').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('holdings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await expectRoot(0, 'overview-page');
+
+    // Open More directly from Activity.
+    await tester.tap(find.text('Activity').last);
+    await tester.pumpAndSettle();
+
+    await expectRoot(2, 'activity-page');
+
+    await tester.tap(find.text('More').last);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('settings-page')), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await expectRoot(2, 'activity-page');
+
+    // Navigation alone must not reload main portfolio data.
+    expect(fake.profiles, 1);
+    expect(fake.details, 1);
+    expect(fake.ranges, ['max']);
   });
 }
