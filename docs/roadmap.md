@@ -1,56 +1,50 @@
 # Roadmap
 
-This is a design direction, not a claim that the listed features already exist.
+This roadmap separates implemented functionality from agreed development priorities and exploratory future work. It does not assign implementation dates or promise backend capabilities.
 
-## Navigation proposal
+## Implemented navigation — build 0.1.0+29
 
 ```text
-Overview
-  Dashboard, historical returns and performance
+Dashboard
+  Overview
 
 Portfolio
   Holdings
-    Asset detail
   Accounts
-    Account detail
-    Cash balance
-    Cash movements (only when supported by the server)
+  Activity
 
-Activity
-  Transactions
-  Transaction detail
-
-More
-  Advanced analyses (when implemented)
-    ROI / ROAI / PnL
-    Benchmarks
-  Settings
-    Appearance
-    Server and session
+Settings
+  Preferences
   About
 ```
 
-The bottom navigation should retain four destinations: Overview, Portfolio, Activity and More. Secondary routes should be introduced only when their backing features exist. Ghostfolio-NG-specific capabilities should be discovered from supported API behavior, not a hardcoded brand string.
+The AppBar three-dot dropdown selects the main section and includes Refresh. A bottom Material 3 NavigationBar displays the active section's subsections with icons and labels. Dashboard has no redundant single-item bottom navigation. Horizontal swipes switch subsections, and Android Back restores previous sections and remembered subsections or returns from detail pages.
 
-## Completed foundations
+The foundations include server connectivity and authentication, shared portfolio data, an interactive return chart, holdings with an allocation chart, account details and balance history, paginated Activity, transaction details, account and temporary asset filters, appearance preferences and About. An allocation chart within Holdings is not a dedicated Allocations screen. See the [README](../README.md) for the current feature summary and [Architecture](architecture.md) for navigation and state ownership.
 
-- Created and published the initial Git baseline `95582ce`, tagged `v0.1.0-dev.23`.
-- Removed the unused build 19 Flutter startup component and resolved analyzer suggestions.
-- Introduced the initial Flutter analysis and test CI; its first run passed on `2d2a194`.
-- Added development documentation and AGPL-3.0 licensing.
+## Agreed next functional priority: Dashboard Enhancement
 
-## Completed M10 navigation
+| Dashboard subsection | Status |
+|---|---|
+| Overview | Implemented |
+| Allocations | Planned |
+| Invested vs Earned | Planned |
 
-- Implemented hierarchical mobile navigation with contextual Portfolio and More destinations.
+Initially, Dashboard Enhancement must use only information and REST capabilities available in **standard Ghostfolio**. Review the available data and semantics before implementing either planned subsection; this roadmap does not claim that a specific endpoint or required metric already exists. Preserve server-owned financial calculations, currency distinctions and explicit unavailable values.
 
-## Near-term work
+Ghostfolio-NG extensions will be evaluated and introduced in a later phase. They are not a prerequisite for the initial Dashboard Enhancement work. Planned subsections must not appear as empty navigation destinations before their functionality is implemented.
 
+## Subsequent development directions
 
-- Expand account and cash workflows without misleading currency aggregation.
-- Analyze advanced indicators and NG-specific functionality before implementation.
-- Qualify an Android release variant, including manifest permissions and secure production signing, before distributing signed artifacts.
-- Introduce artifact-build workflows separately from CI and do not auto-publish unqualified builds.
+After the Dashboard Enhancement priority, further work should include the following areas. Their detailed scope and ordering remain to be defined:
 
-## Release process
+- Advanced ROI / ROAI / PnL analysis, beyond displaying returns and the calculation method reported by the server.
+- Ghostfolio-NG-specific capabilities, following evaluation of supported API behavior and compatibility with standard Ghostfolio.
+- Cash Management, beyond the existing read-only account cash figures and recorded balance history.
+- Further financial and allocation analysis beyond the initial Dashboard Enhancement scope.
 
-Until qualified, build numbers identify development snapshots rather than stable releases. Commit, tag, compiled artifact and recorded verification results should be traceable to the same source. No public release or automatic publication is implied by tagging development code.
+These are future development directions, not implemented features or committed delivery milestones. Specific indicators, comparisons and workflows within them remain exploratory until their data requirements, financial semantics and backend support have been reviewed.
+
+## Release qualification
+
+Build numbers identify development snapshots rather than stable releases. Automated checks and Android device verification are recorded separately in the [Changelog](../CHANGELOG.md); they do not establish production qualification. Release signing, distribution and any artifact-publication workflow require separate review and qualification. No public release or automatic publication is implied by a development build number.

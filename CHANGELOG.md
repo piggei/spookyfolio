@@ -2,6 +2,26 @@
 
 Spookyfolio is in early development. Entries refer to development Android build numbers, not stable releases. Validation reports distinguish automated checks from on-device checks.
 
+## 0.1.0+29 — 2026-11-23
+
+### Changed
+
+- Replaced the four main destinations with hierarchical navigation: Dashboard (Overview), Portfolio (Holdings, Accounts, Activity), and Settings (Preferences, About).
+- Restored the original AppBar version title and its typography, with no section subtitle.
+- Added a compact three-dot AppBar menu for section selection and Refresh, with the selected section highlighted.
+- Restored the section-specific bottom NavigationBar with subsection icons and labels; Dashboard has no redundant single-item bar.
+- Kept horizontal subsection swipes synchronized with the bottom NavigationBar and preserved Android Back and return from detail pages.
+- Preserved loaded portfolio data, Activity pagination, account filtering, performance range and remembered subsections across navigation, with isolation when the server or JWT changes.
+- Kept Refresh specific to the active data source and disabled it in Settings.
+- Updated the application build number to `0.1.0+29`.
+
+### Validation
+
+- Flutter analyze: no issues.
+- Flutter tests: 155 passed.
+- Formatting and diff checks passed.
+- Android device verification completed.
+
 ## 0.1.0+28 — 2026-11-22
 
 ### Added
