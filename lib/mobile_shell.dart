@@ -8,7 +8,7 @@ import 'portfolio_client.dart';
 import 'holdings_page.dart';
 import 'return_chart.dart';
 
-/// M5 mobile shell. Tabs share one data snapshot; switching tabs makes no HTTP calls.
+/// Hierarchical shell. Navigation shares a snapshot and retains visited pages.
 class MobileShell extends StatefulWidget {
   const MobileShell({
     super.key,
@@ -39,15 +39,9 @@ class _MobileShellState extends State<MobileShell> {
   late Future<_Snapshot> _data;
   _Snapshot? _lastSnapshot;
   int _sessionRevision = 0;
-  int _tab = 0;
-  late PageController _rootPages;
-  late final PageController _portfolioPages;
-  late final PageController _morePages;
-  int? _contextTab;
-  int _contextReturnTab = 0;
-  bool _restoringRootPage = false;
-  int _portfolioTab = 0;
-  int _moreTab = 0;
+  _ShellNavigation _navigation = _ShellNavigation();
+  final _menuController = MenuController();
+  bool _menuOpen = false;
   int _accountsRefreshRevision = 0;
   String _range = 'max';
   String? _accountId;
@@ -58,18 +52,7 @@ class _MobileShellState extends State<MobileShell> {
   @override
   void initState() {
     super.initState();
-    _rootPages = PageController();
-    _portfolioPages = PageController();
-    _morePages = PageController();
     _refresh();
-  }
-
-  @override
-  void dispose() {
-    _rootPages.dispose();
-    _portfolioPages.dispose();
-    _morePages.dispose();
-    super.dispose();
   }
 
   @override
@@ -77,55 +60,51 @@ class _MobileShellState extends State<MobileShell> {
     super.didUpdateWidget(oldWidget);
     if (widget.jwt != oldWidget.jwt ||
         widget.serverUrl != oldWidget.serverUrl) {
-      _tab = 0;
-      _contextTab = null;
-      _contextReturnTab = 0;
-      _restoringRootPage = false;
-      _portfolioTab = 0;
-      _moreTab = 0;
+      _navigation = _ShellNavigation();
       _accountsRefreshRevision = 0;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _rootPages.hasClients) {
-          _rootPages.jumpToPage(0);
-        }
-      });
       _range = 'max';
       _accountId = null;
       _accountName = null;
       _accountsFuture = null;
       _lastSnapshot = null;
       _sessionRevision++;
+      final revision = _sessionRevision;
+      final shellRoute = ModalRoute.of(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || revision != _sessionRevision) return;
+        _menuController.close();
+        // Detail routes and account sheets also belong to the old session.
+        if (shellRoute != null && shellRoute.isActive) {
+          Navigator.of(context).popUntil((route) => route == shellRoute);
+        }
+      });
       _refresh();
     }
   }
 
   Future<_Snapshot> _fetch() async {
     final api = widget.client ?? PortfolioClient();
-    final profile = await api.getProfile(
-      serverUrl: widget.serverUrl,
-      jwt: widget.jwt,
-    );
+    // Capture the request context before awaiting to isolate in-flight sessions.
+    final serverUrl = widget.serverUrl;
+    final jwt = widget.jwt;
     final accountId = _accountId;
     final range = _range;
+    final profile = await api.getProfile(serverUrl: serverUrl, jwt: jwt);
     final details = accountId == null
-        ? await api.getDetails(serverUrl: widget.serverUrl, jwt: widget.jwt)
+        ? await api.getDetails(serverUrl: serverUrl, jwt: jwt)
         : await api.getDetailsForAccount(
-            serverUrl: widget.serverUrl,
-            jwt: widget.jwt,
+            serverUrl: serverUrl,
+            jwt: jwt,
             accountId: accountId,
           );
     PortfolioHistory? history;
     String? historyIssue;
     try {
       history = accountId == null
-          ? await api.getHistory(
-              serverUrl: widget.serverUrl,
-              jwt: widget.jwt,
-              range: range,
-            )
+          ? await api.getHistory(serverUrl: serverUrl, jwt: jwt, range: range)
           : await api.getHistoryForAccount(
-              serverUrl: widget.serverUrl,
-              jwt: widget.jwt,
+              serverUrl: serverUrl,
+              jwt: jwt,
               accountId: accountId,
               range: range,
             );
@@ -152,43 +131,27 @@ class _MobileShellState extends State<MobileShell> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _contextTab == null,
+      canPop: !_menuOpen && !_navigation.canGoBack,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && _contextTab != null) {
-          _exitContext();
+        if (didPop) return;
+        if (_menuOpen) {
+          _menuController.close();
+        } else if (_navigation.canGoBack) {
+          setState(_navigation.goBack);
         }
       },
       child: Scaffold(
         appBar: AppBar(
-          title: _contextTab == 1
-              ? const Text('Portfolio')
-              : _contextTab == 3
-              ? Text(_moreTab == 0 ? 'Settings' : 'About')
-              : const AppVersionTitle(),
-          leading: _contextTab == null
-              ? null
-              : BackButton(onPressed: _exitContext),
+          automaticallyImplyLeading: false,
+          title: const AppVersionTitle(),
           actions: [
-            if (_contextTab != 3)
+            if (_navigation.section != _Section.settings)
               IconButton(
                 tooltip: 'Select account',
                 icon: const Icon(Icons.filter_list),
                 onPressed: _openAccountSelector,
               ),
-            if (_contextTab != 3)
-              IconButton(
-                tooltip: 'Refresh',
-                icon: const Icon(Icons.refresh),
-                onPressed: () {
-                  if (_contextTab == 1 && _portfolioTab == 1) {
-                    setState(() => _accountsRefreshRevision++);
-                  } else if (_contextTab == null && _tab == 2) {
-                    _activityKey.currentState?.refresh();
-                  } else {
-                    setState(_refresh);
-                  }
-                },
-              ),
+            _mainMenu(),
           ],
         ),
         body: SafeArea(
@@ -244,37 +207,56 @@ class _MobileShellState extends State<MobileShell> {
                   Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 680),
-                      child: NotificationListener<ScrollNotification>(
-                        onNotification: _onRootScrollEnd,
-                        child: PageView(
-                          key: const ValueKey('root-swipe-pages'),
-                          controller: _rootPages,
-                          physics: _contextTab == null
-                              ? const PageScrollPhysics()
-                              : const NeverScrollableScrollPhysics(),
-                          onPageChanged: (index) {
-                            if (_tab != index) {
-                              setState(() => _tab = index);
-                            }
-                          },
-                          children: [
-                            _overview(data),
-                            _portfolioContent(data),
-                            _RootKeepAlive(
-                              child: ActivityFeed(
-                                key: _activityKey,
-                                enableAssetFilter: true,
-                                baseCurrency: data.profile.baseCurrency ?? '',
-                                serverUrl: widget.serverUrl,
-                                jwt: widget.jwt,
-                                client: widget.client,
-                                active: _tab == 2,
-                                accountId: _accountId,
+                      child: IndexedStack(
+                        key: ValueKey('section-pages-$_sessionRevision'),
+                        index: _navigation.section.index,
+                        children: [
+                          for (final section in _Section.values)
+                            _SectionPages(
+                              key: ValueKey(section),
+                              section: section,
+                              selectedIndex: _navigation.indexFor(section),
+                              active: _navigation.section == section,
+                              onChanged: (index) => setState(
+                                () => _navigation.selectSubsection(
+                                  section,
+                                  index,
+                                ),
                               ),
+                              pageBuilder: (destination) =>
+                                  switch (destination) {
+                                    _Destination.overview => _overview(data),
+                                    _Destination.holdings => _holdings(data),
+                                    _Destination.accounts => AccountsPage(
+                                      serverUrl: widget.serverUrl,
+                                      jwt: widget.jwt,
+                                      baseCurrency:
+                                          data.profile.baseCurrency ?? '',
+                                      client: widget.client,
+                                      embedded: true,
+                                      refreshRevision: _accountsRefreshRevision,
+                                    ),
+                                    _Destination.activity => ActivityFeed(
+                                      key: _activityKey,
+                                      enableAssetFilter: true,
+                                      baseCurrency:
+                                          data.profile.baseCurrency ?? '',
+                                      serverUrl: widget.serverUrl,
+                                      jwt: widget.jwt,
+                                      client: widget.client,
+                                      active:
+                                          _navigation.destination ==
+                                          _Destination.activity,
+                                      accountId: _accountId,
+                                    ),
+                                    _Destination.preferences => _settings(data),
+                                    _Destination.about =>
+                                      const SpookyfolioAboutPage(
+                                        embedded: true,
+                                      ),
+                                  },
                             ),
-                            _moreContent(data),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
                   ),
@@ -308,190 +290,69 @@ class _MobileShellState extends State<MobileShell> {
             },
           ),
         ),
-        bottomNavigationBar: _bottomBar(),
       ),
     );
   }
 
-  Widget _bottomBar() {
-    if (_contextTab == 1) {
-      return NavigationBar(
-        selectedIndex: _portfolioTab,
-        onDestinationSelected: (index) => _portfolioPages.animateToPage(
-          index,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
+  Widget _mainMenu() => MenuAnchor(
+    controller: _menuController,
+    onOpen: () => setState(() => _menuOpen = true),
+    onClose: () => setState(() => _menuOpen = false),
+    menuChildren: [
+      for (final section in _Section.values)
+        MenuItemButton(
+          key: ValueKey('section-${section.name}'),
+          leadingIcon: Icon(section.icon),
+          trailingIcon: _navigation.section == section
+              ? const Icon(Icons.check)
+              : null,
+          style: _navigation.section == section
+              ? ButtonStyle(
+                  backgroundColor: WidgetStatePropertyAll(
+                    Theme.of(context).colorScheme.secondaryContainer,
+                  ),
+                )
+              : null,
+          onPressed: () => setState(() => _navigation.selectSection(section)),
+          child: Text(section.label),
         ),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            label: 'Holdings',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_balance_outlined),
-            label: 'Accounts',
-          ),
-        ],
-      );
-    }
+      const Divider(),
+      MenuItemButton(
+        key: const ValueKey('refresh-navigation'),
+        leadingIcon: const Icon(Icons.refresh),
+        onPressed: _navigation.section == _Section.settings
+            ? null
+            : _refreshCurrentDestination,
+        child: const Text('Refresh'),
+      ),
+    ],
+    builder: (context, controller, child) => IconButton(
+      key: const ValueKey('main-navigation'),
+      tooltip: 'Navigation menu',
+      icon: const Icon(Icons.more_vert),
+      onPressed: () =>
+          controller.isOpen ? controller.close() : controller.open(),
+    ),
+  );
 
-    if (_contextTab == 3) {
-      return NavigationBar(
-        selectedIndex: _moreTab,
-        onDestinationSelected: (index) => _morePages.animateToPage(
-          index,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-        ),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            label: 'Settings',
-          ),
-          NavigationDestination(icon: Icon(Icons.info_outline), label: 'About'),
-        ],
-      );
-    }
-
-    return NavigationBar(
-      selectedIndex: _tab,
-      onDestinationSelected: _selectRootDestination,
-      destinations: const [
-        NavigationDestination(icon: Icon(Icons.show_chart), label: 'Overview'),
-        NavigationDestination(
-          icon: Icon(Icons.account_balance_wallet_outlined),
-          label: 'Portfolio',
-        ),
-        NavigationDestination(icon: Icon(Icons.swap_horiz), label: 'Activity'),
-        NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
-      ],
-    );
-  }
-
-  void _selectRootDestination(int index) {
-    if (!mounted || _contextTab != null || index < 0 || index > 3) {
-      return;
-    }
-
-    if (!_rootPages.hasClients) {
-      if (index == 1 || index == 3) {
-        _contextReturnTab = _tab;
-      }
-      setState(() => _tab = index);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (_rootPages.hasClients) {
-          _rootPages.jumpToPage(index);
-        }
-        _enterContext(index);
-      });
-      return;
-    }
-
-    final current = _rootPages.page;
-
-    if (index == _tab && current != null && (current - index).abs() < 0.01) {
-      _enterContext(index);
-      return;
-    }
-
-    _rootPages.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  bool _onRootScrollEnd(ScrollNotification notification) {
-    if (notification is ScrollStartNotification &&
-        notification.depth == 0 &&
-        notification.metrics is PageMetrics &&
-        _contextTab == null &&
-        !_restoringRootPage) {
-      _contextReturnTab = _tab;
-    }
-
-    if (notification is! ScrollEndNotification || _restoringRootPage) {
-      return false;
-    }
-
-    if (_contextTab != null ||
-        notification.depth != 0 ||
-        notification.metrics is! PageMetrics ||
-        !_rootPages.hasClients) {
-      return false;
-    }
-
-    final page = _rootPages.page;
-    if (page == null) return false;
-
-    final index = page.round();
-
-    if ((page - index).abs() > 0.01 || (index != 1 && index != 3)) {
-      return false;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _contextTab != null || !_rootPages.hasClients) {
+  void _refreshCurrentDestination() {
+    switch (_navigation.destination) {
+      case _Destination.accounts:
+        setState(() => _accountsRefreshRevision++);
+      case _Destination.activity:
+        _activityKey.currentState?.refresh();
+      case _Destination.overview:
+      case _Destination.holdings:
+        setState(_refresh);
+      case _Destination.preferences:
+      case _Destination.about:
         return;
-      }
-
-      final current = _rootPages.page;
-
-      if (current != null && (current - index).abs() < 0.01 && _tab == index) {
-        _enterContext(index);
-      }
-    });
-
-    return false;
-  }
-
-  void _enterContext(int index) {
-    if (!mounted || _contextTab != null || (index != 1 && index != 3)) {
-      return;
     }
-
-    final controller = index == 1 ? _portfolioPages : _morePages;
-
-    if (controller.hasClients) {
-      controller.jumpToPage(0);
-    }
-
-    setState(() {
-      _contextTab = index;
-      if (index == 1) {
-        _portfolioTab = 0;
-      } else {
-        _moreTab = 0;
-      }
-    });
-  }
-
-  void _exitContext() {
-    if (!mounted || _contextTab == null) return;
-
-    final destination = _contextReturnTab;
-    _restoringRootPage = true;
-
-    // Restore the underlying page before displaying the root menu.
-    if (_rootPages.hasClients) {
-      _rootPages.jumpToPage(destination);
-    }
-
-    setState(() {
-      _tab = destination;
-      _contextTab = null;
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _restoringRootPage = false;
-      }
-    });
   }
 
   Future<void> _openAccountSelector() async {
     if (!mounted) return;
+    final sessionRevision = _sessionRevision;
     _accountsFuture ??= (widget.client ?? PortfolioClient()).getAccountsCatalog(
       serverUrl: widget.serverUrl,
       jwt: widget.jwt,
@@ -551,7 +412,12 @@ class _MobileShellState extends State<MobileShell> {
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                       ),
-                      onTap: () => _chooseAccount(null, null, sheetContext),
+                      onTap: () => _chooseAccount(
+                        null,
+                        null,
+                        sheetContext,
+                        sessionRevision,
+                      ),
                     ),
                     for (final account in accounts)
                       ListTile(
@@ -572,6 +438,7 @@ class _MobileShellState extends State<MobileShell> {
                           account.id,
                           account.name,
                           sheetContext,
+                          sessionRevision,
                         ),
                       ),
                   ],
@@ -584,58 +451,21 @@ class _MobileShellState extends State<MobileShell> {
     );
   }
 
-  void _chooseAccount(String? id, String? name, BuildContext sheetContext) {
+  void _chooseAccount(
+    String? id,
+    String? name,
+    BuildContext sheetContext,
+    int sessionRevision,
+  ) {
     Navigator.of(sheetContext).pop();
-    if (!mounted || id == _accountId) return;
+    if (!mounted || sessionRevision != _sessionRevision || id == _accountId) {
+      return;
+    }
     setState(() {
       _accountId = id;
       _accountName = name;
       _refresh();
     });
-  }
-
-  // Portfolio uses contextual navigation within the root PageView.
-  // Back restores the originating root destination.
-  Widget _portfolioContent(_Snapshot data) {
-    return PageView(
-      key: const ValueKey('portfolio-swipe-pages'),
-      controller: _portfolioPages,
-      physics: _contextTab == 1
-          ? const PageScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
-      onPageChanged: (index) {
-        if (_portfolioTab != index) {
-          setState(() => _portfolioTab = index);
-        }
-      },
-      children: [
-        _holdings(data),
-        AccountsPage(
-          serverUrl: widget.serverUrl,
-          jwt: widget.jwt,
-          baseCurrency: data.profile.baseCurrency ?? '',
-          client: widget.client,
-          embedded: true,
-          refreshRevision: _accountsRefreshRevision,
-        ),
-      ],
-    );
-  }
-
-  Widget _moreContent(_Snapshot data) {
-    return PageView(
-      key: const ValueKey('more-swipe-pages'),
-      controller: _morePages,
-      physics: _contextTab == 3
-          ? const PageScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
-      onPageChanged: (index) {
-        if (_moreTab != index) {
-          setState(() => _moreTab = index);
-        }
-      },
-      children: [_settings(data), const SpookyfolioAboutPage(embedded: true)],
-    );
   }
 
   Widget _overview(_Snapshot data) {
@@ -847,24 +677,189 @@ String _money(double? amount, String currency) => amount == null
 String _percentage(double? ratio) =>
     ratio == null ? 'Not available' : '${(ratio * 100).toStringAsFixed(2)}%';
 
-/// Keeps the activity feed and its pagination alive across root pages.
-class _RootKeepAlive extends StatefulWidget {
-  const _RootKeepAlive({required this.child});
+enum _Destination {
+  overview('Overview', Icons.dashboard_outlined),
+  holdings('Holdings', Icons.account_balance_wallet_outlined),
+  accounts('Accounts', Icons.account_balance_outlined),
+  activity('Activity', Icons.swap_horiz),
+  preferences('Preferences', Icons.settings_outlined),
+  about('About', Icons.info_outline);
 
-  final Widget child;
-
-  @override
-  State<_RootKeepAlive> createState() => _RootKeepAliveState();
+  const _Destination(this.label, this.icon);
+  final String label;
+  final IconData icon;
 }
 
-class _RootKeepAliveState extends State<_RootKeepAlive>
+enum _Section {
+  dashboard('Dashboard', Icons.dashboard_outlined, [_Destination.overview]),
+  portfolio('Portfolio', Icons.account_balance_wallet_outlined, [
+    _Destination.holdings,
+    _Destination.accounts,
+    _Destination.activity,
+  ]),
+  settings('Settings', Icons.settings_outlined, [
+    _Destination.preferences,
+    _Destination.about,
+  ]);
+
+  const _Section(this.label, this.icon, this.destinations);
+  final String label;
+  final IconData icon;
+  final List<_Destination> destinations;
+}
+
+/// The sole navigation state: section history and remembered subsection per section.
+/// Account selection and performance range deliberately live outside this model.
+class _ShellNavigation {
+  _Section section = _Section.dashboard;
+  final _indices = <_Section, int>{};
+  final _history = <_Section>[];
+
+  int indexFor(_Section section) => _indices[section] ?? 0;
+  _Destination get destination => section.destinations[indexFor(section)];
+  bool get canGoBack => _history.isNotEmpty;
+
+  void selectSection(_Section next) {
+    if (next == section) return;
+    if (next == _Section.dashboard) {
+      _history.clear();
+    } else {
+      _history.add(section);
+    }
+    section = next;
+  }
+
+  void selectSubsection(_Section section, int index) =>
+      _indices[section] = index;
+
+  void goBack() => section = _history.removeLast();
+}
+
+/// Tab controllers handle gestures only; the shell owns navigation state.
+class _SectionPages extends StatefulWidget {
+  const _SectionPages({
+    super.key,
+    required this.section,
+    required this.selectedIndex,
+    required this.active,
+    required this.onChanged,
+    required this.pageBuilder,
+  });
+
+  final _Section section;
+  final int selectedIndex;
+  final bool active;
+  final ValueChanged<int> onChanged;
+  final Widget Function(_Destination) pageBuilder;
+
+  @override
+  State<_SectionPages> createState() => _SectionPagesState();
+}
+
+class _SectionPagesState extends State<_SectionPages>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(
+      length: widget.section.destinations.length,
+      initialIndex: widget.selectedIndex,
+      vsync: this,
+    );
+    _tabs.addListener(_onChanged);
+  }
+
+  void _onChanged() {
+    if (_tabs.index != widget.selectedIndex) widget.onChanged(_tabs.index);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SectionPages oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_tabs.index != widget.selectedIndex) _tabs.index = widget.selectedIndex;
+  }
+
+  @override
+  void dispose() {
+    _tabs.removeListener(_onChanged);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final destinations = widget.section.destinations;
+    Widget page(int index) => _RetainedPage(
+      active: widget.active && widget.selectedIndex == index,
+      builder: () => widget.pageBuilder(destinations[index]),
+    );
+    if (destinations.length == 1) return page(0);
+    return Column(
+      children: [
+        Expanded(
+          child: TabBarView(
+            key: ValueKey('${widget.section.name}-swipe-pages'),
+            controller: _tabs,
+            children: [
+              for (var index = 0; index < destinations.length; index++)
+                page(index),
+            ],
+          ),
+        ),
+        NavigationBar(
+          key: ValueKey('subsections-${widget.section.name}'),
+          selectedIndex: widget.selectedIndex,
+          onDestinationSelected: _tabs.animateTo,
+          destinations: [
+            for (final destination in destinations)
+              NavigationDestination(
+                key: ValueKey('destination-${destination.name}'),
+                icon: Icon(destination.icon),
+                label: destination.label,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Mount on first selection, then preserve data, scroll position and pagination.
+class _RetainedPage extends StatefulWidget {
+  const _RetainedPage({required this.active, required this.builder});
+  final bool active;
+  final Widget Function() builder;
+
+  @override
+  State<_RetainedPage> createState() => _RetainedPageState();
+}
+
+class _RetainedPageState extends State<_RetainedPage>
     with AutomaticKeepAliveClientMixin {
+  late bool _visited;
+
+  @override
+  void initState() {
+    super.initState();
+    _visited = widget.active;
+  }
+
+  @override
+  void didUpdateWidget(covariant _RetainedPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_visited && widget.active) {
+      _visited = true;
+    }
+  }
+
   @override
   bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return widget.child;
+    return _visited ? widget.builder() : const SizedBox.shrink();
   }
 }

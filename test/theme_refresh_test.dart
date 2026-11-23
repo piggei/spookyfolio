@@ -43,7 +43,7 @@ class _Api extends PortfolioClient {
 }
 
 void main() {
-  testWidgets('activity tab uses only the AppBar refresh', (tester) async {
+  testWidgets('activity uses only the dropdown refresh', (tester) async {
     final api = _Api();
     await tester.pumpWidget(
       MaterialApp(
@@ -56,12 +56,18 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Activity').last);
+    await tester.tap(find.byKey(const ValueKey('main-navigation')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('section-portfolio')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('destination-activity')));
     await tester.pumpAndSettle();
     expect(api.activityCalls, 1);
     expect(find.byTooltip('Refresh activities'), findsNothing);
-    expect(find.byTooltip('Refresh'), findsOneWidget);
-    await tester.tap(find.byTooltip('Refresh'));
+    expect(find.byTooltip('Refresh'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('main-navigation')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('refresh-navigation')));
     await tester.pumpAndSettle();
     expect(api.activityCalls, 2);
     expect(api.profileCalls, 1);
@@ -93,7 +99,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('More').last);
+    await tester.tap(find.byKey(const ValueKey('main-navigation')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('section-settings')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('theme-light')));
     await tester.pumpAndSettle();
