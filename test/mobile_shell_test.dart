@@ -358,7 +358,15 @@ void main() {
       );
       await _section(tester, 'Dashboard');
       expectAppBar();
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(
+        tester
+            .widget<NavigationBar>(find.byType(NavigationBar))
+            .destinations
+            .cast<NavigationDestination>()
+            .map((destination) => destination.label),
+        ['Overview', 'Allocations'],
+      );
     },
   );
 
@@ -370,7 +378,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
     expect(find.byType(TabBar), findsNothing);
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.byTooltip('Refresh'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('main-navigation')));
     await tester.pumpAndSettle();

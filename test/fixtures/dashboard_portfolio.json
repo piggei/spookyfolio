@@ -1,0 +1,245 @@
+{
+  "createdAt": "2026-11-23T12:00:00.000Z",
+  "holdings": [
+    {
+      "assetProfile": {
+        "symbol": "FUND",
+        "name": "iShares World",
+        "dataSource": "YAHOO",
+        "countries": [
+          {
+            "code": "US",
+            "name": "United States",
+            "continent": "North America",
+            "weight": 0.75
+          },
+          {
+            "code": "DE",
+            "name": "Germany",
+            "continent": "Europe",
+            "weight": 0.25
+          }
+        ],
+        "sectors": [
+          {
+            "name": "Technology",
+            "weight": 0.8
+          },
+          {
+            "name": "Financials",
+            "weight": 0.2
+          }
+        ],
+        "holdings": [
+          {
+            "name": "Apple Inc",
+            "allocationInPercentage": 0.1,
+            "valueInBaseCurrency": 60
+          },
+          {
+            "name": "Microsoft",
+            "allocationInPercentage": 0.05,
+            "valueInBaseCurrency": 30
+          }
+        ],
+        "currency": "USD",
+        "assetClass": "EQUITY",
+        "assetSubClass": "ETF",
+        "assetClassLabel": "Equities",
+        "assetSubClassLabel": "ETF",
+        "isin": "TEST00000001"
+      },
+      "valueInBaseCurrency": 600,
+      "allocationInPercentage": 0.6,
+      "markets": {
+        "developedMarkets": 1,
+        "emergingMarkets": 0,
+        "otherMarkets": 0
+      },
+      "marketsAdvanced": {
+        "northAmerica": 0.75,
+        "europe": 0.25
+      }
+    },
+    {
+      "assetProfile": {
+        "symbol": "FUND",
+        "name": "Vanguard Europe",
+        "dataSource": "MANUAL",
+        "countries": [
+          {
+            "code": "DE",
+            "name": "Germany",
+            "continent": "Europe",
+            "weight": 1
+          }
+        ],
+        "sectors": [
+          {
+            "name": "Technology",
+            "weight": 0.5
+          },
+          {
+            "name": "Financials",
+            "weight": 0.5
+          }
+        ],
+        "holdings": [
+          {
+            "name": " apple inc ",
+            "allocationInPercentage": 0.2,
+            "valueInBaseCurrency": 40
+          },
+          {
+            "name": "Alphabet",
+            "allocationInPercentage": 0.1,
+            "valueInBaseCurrency": 20
+          }
+        ],
+        "currency": "USD",
+        "assetClass": "EQUITY",
+        "assetSubClass": "ETF",
+        "assetClassLabel": "Equities",
+        "assetSubClassLabel": "ETF"
+      },
+      "valueInBaseCurrency": 200,
+      "allocationInPercentage": 0.2,
+      "markets": {
+        "developedMarkets": 1,
+        "emergingMarkets": 0,
+        "otherMarkets": 0
+      },
+      "marketsAdvanced": {
+        "northAmerica": 0,
+        "europe": 1
+      }
+    },
+    {
+      "assetProfile": {
+        "symbol": "EUR",
+        "name": "EUR",
+        "dataSource": "YAHOO",
+        "countries": [
+          {
+            "code": "US",
+            "continent": "North America",
+            "weight": 1
+          }
+        ],
+        "sectors": [
+          {
+            "name": "Technology",
+            "weight": 1
+          }
+        ],
+        "holdings": [],
+        "currency": "EUR",
+        "assetClass": "LIQUIDITY",
+        "assetSubClass": "CASH",
+        "assetClassLabel": "Liquidity",
+        "assetSubClassLabel": "Cash"
+      },
+      "valueInBaseCurrency": 100,
+      "allocationInPercentage": 0.1
+    },
+    {
+      "assetProfile": {
+        "symbol": "XAU",
+        "name": "Gold",
+        "dataSource": "YAHOO",
+        "countries": [],
+        "sectors": [],
+        "holdings": [],
+        "currency": "USD",
+        "assetClass": "COMMODITY",
+        "assetSubClass": "PRECIOUS_METAL",
+        "assetClassLabel": "Commodities",
+        "assetSubClassLabel": "Precious metals"
+      },
+      "valueInBaseCurrency": 50,
+      "allocationInPercentage": 0.05
+    },
+    {
+      "assetProfile": {
+        "symbol": "BTC",
+        "name": "Bitcoin",
+        "dataSource": "YAHOO",
+        "countries": [],
+        "sectors": [],
+        "holdings": [],
+        "currency": "USD",
+        "assetClass": "ALTERNATIVE_INVESTMENT",
+        "assetSubClass": "CRYPTOCURRENCY",
+        "assetClassLabel": "Alternative investments",
+        "assetSubClassLabel": "Cryptocurrency"
+      },
+      "valueInBaseCurrency": 50,
+      "allocationInPercentage": 0.05
+    }
+  ],
+  "summary": {
+    "currentNetWorth": 2000,
+    "currentValueInBaseCurrency": 1000,
+    "filteredValueInBaseCurrency": 1000,
+    "filteredValueInPercentage": 0.5,
+    "totalAssetsInBaseCurrency": 2200,
+    "liabilitiesInBaseCurrency": 200,
+    "totalCashInBaseCurrency": 100,
+    "totalValueInBaseCurrency": 1000,
+    "totalInvestment": 750,
+    "totalInvestmentValueWithCurrencyEffect": 780,
+    "cash": 100
+  },
+  "accounts": {
+    "11111111-2222-3333-4444-555555555555": {
+      "name": "Broker",
+      "currency": "USD",
+      "balance": 10,
+      "quantity": 2,
+      "valueInBaseCurrency": 700
+    },
+    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee": {
+      "name": "Savings",
+      "currency": "EUR",
+      "balance": 90,
+      "valueInBaseCurrency": 300
+    }
+  },
+  "platforms": {
+    "broker": {
+      "name": "Platform",
+      "currency": "EUR",
+      "balance": 100,
+      "valueInBaseCurrency": 1000
+    }
+  },
+  "markets": {
+    "developedMarkets": {
+      "id": "developedMarkets",
+      "valueInBaseCurrency": 800,
+      "valueInPercentage": 0.8
+    },
+    "UNKNOWN": {
+      "id": "UNKNOWN",
+      "valueInBaseCurrency": 200,
+      "valueInPercentage": 0.2
+    }
+  },
+  "marketsAdvanced": {
+    "northAmerica": {
+      "id": "northAmerica",
+      "valueInBaseCurrency": 450,
+      "valueInPercentage": 0.45
+    },
+    "europe": {
+      "id": "europe",
+      "valueInBaseCurrency": 350,
+      "valueInPercentage": 0.35
+    },
+    "UNKNOWN": {
+      "id": "UNKNOWN",
+      "valueInBaseCurrency": 200,
+      "valueInPercentage": 0.2
+    }
+  }
+}

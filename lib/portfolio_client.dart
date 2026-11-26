@@ -7,6 +7,7 @@ import 'server_client.dart';
 import 'holding_detail_data.dart';
 import 'asset_lookup_models.dart';
 import 'activity_models.dart';
+import 'portfolio_allocation_models.dart';
 
 class PortfolioApiException implements Exception {
   const PortfolioApiException(this.message, {this.statusCode});
@@ -60,6 +61,10 @@ class PortfolioHolding {
     this.value,
     this.netPerformance,
     this.netPerformancePercent,
+    this.valueInPercentage,
+    this.assetProfile,
+    this.markets,
+    this.marketsAdvanced,
   });
   final String symbol;
   final String name;
@@ -68,6 +73,10 @@ class PortfolioHolding {
   final double? value;
   final double? netPerformance;
   final double? netPerformancePercent;
+  final double? valueInPercentage;
+  final PortfolioAllocationAsset? assetProfile;
+  final Map<String, double?>? markets;
+  final Map<String, double?>? marketsAdvanced;
 
   factory PortfolioHolding.fromJson(Map<String, dynamic> json) {
     final asset = json['assetProfile'];
@@ -76,12 +85,12 @@ class PortfolioHolding {
     }
     final symbol = asset['symbol'];
     final name = asset['name'];
-    if (symbol is! String || name is! String) {
+    if (symbol is! String || (name != null && name is! String)) {
       throw const FormatException('Invalid portfolio holding');
     }
     return PortfolioHolding(
       symbol: symbol,
-      name: name,
+      name: name as String? ?? symbol,
       dataSource: asset['dataSource'] is String
           ? asset['dataSource'] as String
           : null,
@@ -89,6 +98,10 @@ class PortfolioHolding {
       value: _optionalNumber(json, 'valueInBaseCurrency'),
       netPerformance: _optionalNumber(json, 'netPerformance'),
       netPerformancePercent: _optionalNumber(json, 'netPerformancePercent'),
+      valueInPercentage: _optionalNumber(json, 'valueInPercentage'),
+      assetProfile: PortfolioAllocationAsset.fromJson(asset),
+      markets: allocationWeights(json, 'markets'),
+      marketsAdvanced: allocationWeights(json, 'marketsAdvanced'),
     );
   }
 }
@@ -102,6 +115,12 @@ class PortfolioSnapshot {
     this.netPerformancePercentage,
     this.cash,
     this.hasError = false,
+    this.createdAt,
+    this.accounts,
+    this.platforms,
+    this.markets,
+    this.marketsAdvanced,
+    this.summary,
   });
   final List<PortfolioHolding> holdings;
   final double? netWorth;
@@ -110,6 +129,12 @@ class PortfolioSnapshot {
   final double? netPerformancePercentage;
   final double? cash;
   final bool hasError;
+  final DateTime? createdAt;
+  final Map<String, AllocationEntity>? accounts;
+  final Map<String, AllocationEntity>? platforms;
+  final Map<String, AllocationMarket>? markets;
+  final Map<String, AllocationMarket>? marketsAdvanced;
+  final PortfolioAllocationSummary? summary;
 
   factory PortfolioSnapshot.fromJson(Map<String, dynamic> json) {
     final holdings = json['holdings'];
@@ -141,6 +166,18 @@ class PortfolioSnapshot {
       ),
       cash: _optionalNumber(data, 'cash'),
       hasError: json['hasError'] == true,
+      createdAt: allocationDate(json, 'createdAt'),
+      accounts: allocationMap(json, 'accounts', AllocationEntity.fromJson),
+      platforms: allocationMap(json, 'platforms', AllocationEntity.fromJson),
+      markets: allocationMap(json, 'markets', AllocationMarket.fromJson),
+      marketsAdvanced: allocationMap(
+        json,
+        'marketsAdvanced',
+        AllocationMarket.fromJson,
+      ),
+      summary: summary is Map<String, dynamic>
+          ? PortfolioAllocationSummary.fromJson(summary)
+          : null,
     );
   }
 }
@@ -513,6 +550,25 @@ class PortfolioClient {
     final json = await _get(serverUrl, jwt, '/api/v1/portfolio/details');
     return PortfolioSnapshot.fromJson(json);
   }
+
+  /// Opt-in allocation contract; existing detail calls and subclasses stay unchanged.
+  /// No cache: the caller owns the account/session lifetime and shared snapshot.
+  Future<PortfolioSnapshot> getAllocationDetails({
+    required String serverUrl,
+    required String jwt,
+    String? accountId,
+    bool withMarkets = true,
+  }) async => PortfolioSnapshot.fromJson(
+    await _get(
+      serverUrl,
+      jwt,
+      '/api/v1/portfolio/details',
+      queryParameters: {
+        'withMarkets': '$withMarkets',
+        if (accountId != null) 'accounts': _accountId(accountId),
+      },
+    ),
+  );
 
   Future<PortfolioHistory> getHistory({
     required String serverUrl,
