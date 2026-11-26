@@ -135,7 +135,19 @@ class _ConnectionPageState extends State<ConnectionPage> {
               padding: const EdgeInsets.all(24),
               children: [
                 const SizedBox(height: 28),
-                const Icon(Icons.account_balance_wallet_outlined, size: 88),
+                Image.asset(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/branding/splash_dark.png'
+                      : 'assets/branding/splash_light.png',
+                  key: const ValueKey('connection-branding'),
+                  width: 100,
+                  height: 100,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 88,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Spookyfolio',
