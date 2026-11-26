@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:spookyfolio/portfolio_evolution.dart';
 import 'package:spookyfolio/portfolio_client.dart';
 
 Map<String, dynamic> fixture([String name = 'dashboard_portfolio']) =>
@@ -254,4 +255,132 @@ void main() {
     },
   );
 
+  test('Portfolio Evolution preserves exact investment/value series and legacy returns', () {
+    final history = PortfolioHistory.fromJson({
+      'dateOfFirstActivity': '2025-01-01',
+      'hasErrors': true,
+      'performance': {
+        'currentValueInBaseCurrency': 123.4567890123,
+        'totalInvestmentValueWithCurrencyEffect': 100.123456789,
+      },
+      'chart': [
+        {
+          'date': '2026-01-01',
+          'value': 999,
+          'valueWithCurrencyEffect': 123.4567890123,
+          'totalInvestmentValueWithCurrencyEffect': 100.123456789,
+          'netPerformanceInPercentageWithCurrencyEffect': .0123456789,
+        },
+      ],
+    });
+    final series = PortfolioEvolution.fromHistory(history, baseCurrency: 'EUR');
+    expect(series.baseCurrency, 'EUR');
+    expect(series.hasErrors, isTrue);
+    expect(series.dateOfFirstActivity, DateTime(2025));
+    expect(series.points.single.investedCapital, 100.123456789);
+    expect(series.points.single.portfolioValue, 123.4567890123);
+    expect(series.hasCompleteMonetarySeries, isTrue);
+    expect(history.points.single.value, 999);
+    expect(history.points.single.returnWithCurrencyEffect, .0123456789);
+    expect(history.totalInvestmentValueWithCurrencyEffect, 100.123456789);
+  });
+
+  test(
+    'percentage-only, subscription and incomplete series never infer money',
+    () {
+      final history = PortfolioHistory.fromJson({
+        'chart': [
+          {
+            'date': '2026-01-01',
+            'valueInPercentage': .8,
+            'totalInvestment': .9,
+          },
+          {
+            'date': '2026-01-02',
+            'value': 100,
+            'valueWithCurrencyEffect': 120,
+            'totalInvestmentValueWithCurrencyEffect': null,
+          },
+          {
+            'date': '2026-01-03',
+            'totalInvestmentValueWithCurrencyEffect': 0,
+            'valueWithCurrencyEffect': 0,
+          },
+          {'date': '2026-01-04', 'totalInvestmentValueWithCurrencyEffect': 100},
+        ],
+      });
+      final series = PortfolioEvolution.fromHistory(
+        history,
+        baseCurrency: null,
+      );
+      expect(series.points.first.normalizedPortfolioValue, .8);
+      expect(series.points.first.portfolioValue, isNull);
+      expect(series.points.first.investedCapital, isNull);
+      expect(series.points[1].investedCapital, isNull);
+      expect(series.points[2].hasMonetaryComparison, isTrue);
+      expect(series.points.last.portfolioValue, isNull);
+      expect(series.hasCompleteMonetarySeries, isFalse);
+      expect(
+        PortfolioEvolution.fromHistory(
+          PortfolioHistory.fromJson({}),
+          baseCurrency: 'EUR',
+        ).points,
+        isEmpty,
+      );
+    },
+  );
+
+  test('invalid history dates and new numeric fields fail explicitly', () {
+    for (final point in [
+      <String, dynamic>{},
+      {'date': 'invalid'},
+      {'date': '2026-01-01', 'valueWithCurrencyEffect': '1'},
+      {
+        'date': '2026-01-01',
+        'totalInvestmentValueWithCurrencyEffect': double.nan,
+      },
+      {'date': '2026-01-01', 'valueInPercentage': double.infinity},
+    ]) {
+      expect(
+        () => PortfolioHistory.fromJson({
+          'chart': [point],
+        }),
+        throwsFormatException,
+      );
+    }
+    expect(
+      () => PortfolioHistory.fromJson({'dateOfFirstActivity': 'invalid'}),
+      throwsFormatException,
+    );
+  });
+
+  test('existing performance request carries range/account and parses evolution in one response', () async {
+    final api = PortfolioClient(
+      clientFactory: () => MockClient((request) async {
+        expect(request.url.path, '/api/v2/portfolio/performance');
+        expect(request.url.queryParameters, {
+          'range': 'ytd',
+          'accounts': '11111111-2222-3333-4444-555555555555',
+        });
+        return http.Response(
+          '{"chart":[{"date":"2026-01-01","totalInvestmentValueWithCurrencyEffect":10,"valueWithCurrencyEffect":12}]}',
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final history = await api.getHistoryForAccount(
+      serverUrl: 'https://ghostfol.io',
+      jwt: 'jwt',
+      accountId: '11111111-2222-3333-4444-555555555555',
+      range: 'ytd',
+    );
+    expect(
+      PortfolioEvolution.fromHistory(
+        history,
+        baseCurrency: 'EUR',
+      ).points.single.investedCapital,
+      10,
+    );
+  });
 }

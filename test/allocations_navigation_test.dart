@@ -175,7 +175,7 @@ void main() {
             .destinations
             .cast<NavigationDestination>()
             .map((d) => d.label),
-        ['Overview', 'Allocations'],
+        ['Overview', 'Allocations', 'Invested vs Earned'],
       );
       await allocations(tester);
       expect(api.allocationRequests, hasLength(1));

@@ -365,7 +365,7 @@ void main() {
             .destinations
             .cast<NavigationDestination>()
             .map((destination) => destination.label),
-        ['Overview', 'Allocations'],
+        ['Overview', 'Allocations', 'Invested vs Earned'],
       );
     },
   );

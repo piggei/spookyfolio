@@ -7,6 +7,7 @@ import 'accounts_page.dart';
 import 'portfolio_client.dart';
 import 'holdings_page.dart';
 import 'return_chart.dart';
+import 'invested_earned_chart.dart';
 import 'allocations_page.dart';
 
 /// Hierarchical shell. Navigation shares a snapshot and retains visited pages.
@@ -316,6 +317,9 @@ class _MobileShellState extends State<MobileShell> {
                                   _selectSubsection(section, index),
                               pageBuilder: (destination) => switch (destination) {
                                 _Destination.overview => _overview(data),
+                                _Destination.investedEarned => _investedEarned(
+                                  data,
+                                ),
                                 _Destination.allocations => AllocationsPage(
                                   future: _allocationsData!,
                                   baseCurrency: data.profile.baseCurrency,
@@ -438,6 +442,7 @@ class _MobileShellState extends State<MobileShell> {
       case _Destination.activity:
         _activityKey.currentState?.refresh();
       case _Destination.overview:
+      case _Destination.investedEarned:
       case _Destination.holdings:
         setState(_refresh);
       case _Destination.preferences:
@@ -602,22 +607,7 @@ class _MobileShellState extends State<MobileShell> {
           style: TextStyle(color: Theme.of(context).colorScheme.primary),
         ),
         const SizedBox(height: 18),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final range in _ranges)
-                Padding(
-                  padding: const EdgeInsets.only(right: 5),
-                  child: ChoiceChip(
-                    label: Text(range.toUpperCase()),
-                    selected: _range == range,
-                    onSelected: (_) => _changeRange(range),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        _rangeSelector(),
         const SizedBox(height: 14),
         if (data.historyIssue != null)
           Text(data.historyIssue!)
@@ -662,6 +652,45 @@ class _MobileShellState extends State<MobileShell> {
       ],
     );
   }
+
+  Widget _rangeSelector() => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: [
+        for (final range in _ranges)
+          Padding(
+            padding: const EdgeInsets.only(right: 5),
+            child: ChoiceChip(
+              label: Text(range.toUpperCase()),
+              selected: _range == range,
+              onSelected: (_) => _changeRange(range),
+            ),
+          ),
+      ],
+    ),
+  );
+
+  Widget _investedEarned(_Snapshot data) => ListView(
+    key: const ValueKey('invested-earned-page'),
+    padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+    children: [
+      Text('Invested vs Earned', style: Theme.of(context).textTheme.titleLarge),
+      if (_accountName != null) Text('Account: $_accountName'),
+      const SizedBox(height: 12),
+      _rangeSelector(),
+      const SizedBox(height: 14),
+      if (data.historyIssue != null)
+        Text(data.historyIssue!)
+      else if (data.history == null)
+        const Text('Historical monetary data unavailable')
+      else
+        InteractiveInvestedEarnedChart(
+          history: data.history!,
+          baseCurrency: data.profile.baseCurrency,
+          contextRevision: '$_sessionRevision:${_accountId ?? 'all'}:$_range',
+        ),
+    ],
+  );
 
   Widget _tile(String label, String value, double width) {
     return SizedBox(
@@ -787,6 +816,7 @@ String _percentage(double? ratio) =>
 enum _Destination {
   overview('Overview', Icons.dashboard_outlined),
   allocations('Allocations', Icons.pie_chart_outline),
+  investedEarned('Invested vs Earned', Icons.show_chart),
   holdings('Holdings', Icons.account_balance_wallet_outlined),
   accounts('Accounts', Icons.account_balance_outlined),
   activity('Activity', Icons.swap_horiz),
@@ -802,6 +832,7 @@ enum _Section {
   dashboard('Dashboard', Icons.dashboard_outlined, [
     _Destination.overview,
     _Destination.allocations,
+    _Destination.investedEarned,
   ]),
   portfolio('Portfolio', Icons.account_balance_wallet_outlined, [
     _Destination.holdings,

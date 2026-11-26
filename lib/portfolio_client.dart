@@ -187,11 +187,19 @@ class PortfolioPoint {
     required this.date,
     this.value,
     this.returnWithCurrencyEffect,
+    this.totalInvestmentValueWithCurrencyEffect,
+    this.valueWithCurrencyEffect,
+    this.valueInPercentage,
   });
   final DateTime date;
   final double? value;
   // Ratio reported by Ghostfolio; 0.05 means 5%.
   final double? returnWithCurrencyEffect;
+  // Explicit monetary fields used by upstream Portfolio Evolution. Legacy value
+  // and normalized valueInPercentage must never stand in for these fields.
+  final double? totalInvestmentValueWithCurrencyEffect;
+  final double? valueWithCurrencyEffect;
+  final double? valueInPercentage;
 }
 
 class PortfolioHistory {
@@ -200,11 +208,17 @@ class PortfolioHistory {
     this.portfolioValue,
     this.changeWithCurrencyEffect,
     this.returnPercentageWithCurrencyEffect,
+    this.totalInvestmentValueWithCurrencyEffect,
+    this.dateOfFirstActivity,
+    this.hasErrors = false,
   });
   final List<PortfolioPoint> points;
   final double? portfolioValue;
   final double? changeWithCurrencyEffect;
   final double? returnPercentageWithCurrencyEffect;
+  final double? totalInvestmentValueWithCurrencyEffect;
+  final DateTime? dateOfFirstActivity;
+  final bool hasErrors;
 
   factory PortfolioHistory.fromJson(Map<String, dynamic> json) {
     final chart = json['chart'];
@@ -229,6 +243,15 @@ class PortfolioHistory {
           return PortfolioPoint(
             date: date,
             value: _optionalNumber(item, 'value'),
+            totalInvestmentValueWithCurrencyEffect: _optionalNumber(
+              item,
+              'totalInvestmentValueWithCurrencyEffect',
+            ),
+            valueWithCurrencyEffect: _optionalNumber(
+              item,
+              'valueWithCurrencyEffect',
+            ),
+            valueInPercentage: _optionalNumber(item, 'valueInPercentage'),
             returnWithCurrencyEffect: _optionalNumber(
               item,
               'netPerformanceInPercentageWithCurrencyEffect',
@@ -237,6 +260,12 @@ class PortfolioHistory {
         }),
       ),
       portfolioValue: _optionalNumber(metrics, 'currentValueInBaseCurrency'),
+      totalInvestmentValueWithCurrencyEffect: _optionalNumber(
+        metrics,
+        'totalInvestmentValueWithCurrencyEffect',
+      ),
+      dateOfFirstActivity: allocationDate(json, 'dateOfFirstActivity'),
+      hasErrors: json['hasErrors'] == true,
       changeWithCurrencyEffect: _optionalNumber(
         metrics,
         'netPerformanceWithCurrencyEffect',
