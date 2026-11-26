@@ -66,6 +66,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/maps/world_110m.json
     - assets/branding/app_icon.png
     - assets/branding/splash_light.png
     - assets/branding/splash_dark.png

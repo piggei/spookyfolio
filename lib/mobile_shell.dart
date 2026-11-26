@@ -7,6 +7,7 @@ import 'accounts_page.dart';
 import 'portfolio_client.dart';
 import 'holdings_page.dart';
 import 'return_chart.dart';
+import 'allocations_page.dart';
 
 /// Hierarchical shell. Navigation shares a snapshot and retains visited pages.
 class MobileShell extends StatefulWidget {
@@ -43,6 +44,10 @@ class _MobileShellState extends State<MobileShell> {
   final _menuController = MenuController();
   bool _menuOpen = false;
   int _accountsRefreshRevision = 0;
+  bool _allocationsRequested = false;
+  Future<PortfolioSnapshot>? _allocationsData;
+  int _snapshotRevision = 0;
+  bool _snapshotPending = false;
   String _range = 'max';
   String? _accountId;
   String? _accountName;
@@ -62,6 +67,8 @@ class _MobileShellState extends State<MobileShell> {
         widget.serverUrl != oldWidget.serverUrl) {
       _navigation = _ShellNavigation();
       _accountsRefreshRevision = 0;
+      _allocationsRequested = false;
+      _allocationsData = null;
       _range = 'max';
       _accountId = null;
       _accountName = null;
@@ -82,15 +89,18 @@ class _MobileShellState extends State<MobileShell> {
     }
   }
 
-  Future<_Snapshot> _fetch() async {
+  Future<_Snapshot> _fetch({Future<PortfolioSnapshot>? sharedDetails}) async {
     final api = widget.client ?? PortfolioClient();
     // Capture the request context before awaiting to isolate in-flight sessions.
     final serverUrl = widget.serverUrl;
     final jwt = widget.jwt;
     final accountId = _accountId;
     final range = _range;
+    final sessionRevision = _sessionRevision;
     final profile = await api.getProfile(serverUrl: serverUrl, jwt: jwt);
-    final details = accountId == null
+    final details = sharedDetails != null
+        ? await sharedDetails
+        : accountId == null
         ? await api.getDetails(serverUrl: serverUrl, jwt: jwt)
         : await api.getDetailsForAccount(
             serverUrl: serverUrl,
@@ -113,12 +123,97 @@ class _MobileShellState extends State<MobileShell> {
           ? error.message
           : 'Historical data unavailable';
     }
-    return _Snapshot(profile, details, history, historyIssue);
+    return _Snapshot(
+      profile,
+      details,
+      history,
+      historyIssue,
+      accountId: accountId,
+      sessionRevision: sessionRevision,
+      range: range,
+    );
   }
 
   void _refresh() {
-    _data = _fetch();
+    _snapshotRevision++;
+    // Once Allocations has been opened, one enriched details request serves both
+    // the shared snapshot and Allocations on range/account/portfolio refresh.
+    final details = _allocationsRequested
+        ? _requestAllocations(publishSnapshot: false)
+        : null;
+    _snapshotPending = true;
+    final revision = _snapshotRevision;
+    _data = _fetch(sharedDetails: details);
+    _data.then<void>(
+      (_) {
+        if (revision == _snapshotRevision) _snapshotPending = false;
+      },
+      onError: (Object error, StackTrace trace) {
+        if (revision == _snapshotRevision) _snapshotPending = false;
+      },
+    );
   }
+
+  Future<PortfolioSnapshot> _requestAllocations({bool publishSnapshot = true}) {
+    final session = _sessionRevision;
+    final snapshotRevision = _snapshotRevision;
+    final range = _range;
+    final accountId = _accountId;
+    final future = (widget.client ?? PortfolioClient()).getAllocationDetails(
+      serverUrl: widget.serverUrl,
+      jwt: widget.jwt,
+      accountId: accountId,
+    );
+    _allocationsData = future;
+    // Attach the error handler immediately; the page displays the original
+    // future's error. Never publish a late account/session/range response.
+    future.then<void>((details) {
+      if (!mounted ||
+          !publishSnapshot ||
+          _snapshotPending ||
+          session != _sessionRevision ||
+          snapshotRevision != _snapshotRevision ||
+          accountId != _accountId ||
+          !identical(future, _allocationsData)) {
+        return;
+      }
+      final current = _lastSnapshot;
+      if (current != null &&
+          current.accountId == accountId &&
+          current.sessionRevision == session &&
+          current.range == range) {
+        setState(() {
+          _data = Future.value(
+            _Snapshot(
+              current.profile,
+              details,
+              current.history,
+              current.historyIssue,
+              accountId: accountId,
+              sessionRevision: session,
+              range: range,
+            ),
+          );
+        });
+      }
+    }, onError: (Object error, StackTrace trace) {});
+    return future;
+  }
+
+  void _selectSubsection(_Section section, int index) {
+    setState(() {
+      _navigation.selectSubsection(section, index);
+      if (section.destinations[index] == _Destination.allocations &&
+          !_allocationsRequested) {
+        _allocationsRequested = true;
+        _requestAllocations();
+      }
+    });
+  }
+
+  void _refreshAllocations() => setState(() {
+    _requestAllocations();
+  });
 
   void _changeRange(String range) {
     if (range == _range) return;
@@ -217,44 +312,43 @@ class _MobileShellState extends State<MobileShell> {
                               section: section,
                               selectedIndex: _navigation.indexFor(section),
                               active: _navigation.section == section,
-                              onChanged: (index) => setState(
-                                () => _navigation.selectSubsection(
-                                  section,
-                                  index,
+                              onChanged: (index) =>
+                                  _selectSubsection(section, index),
+                              pageBuilder: (destination) => switch (destination) {
+                                _Destination.overview => _overview(data),
+                                _Destination.allocations => AllocationsPage(
+                                  future: _allocationsData!,
+                                  baseCurrency: data.profile.baseCurrency,
+                                  accountName: _accountName,
+                                  contextRevision:
+                                      '$_sessionRevision:${_accountId ?? 'all'}',
+                                  onRetry: _refreshAllocations,
                                 ),
-                              ),
-                              pageBuilder: (destination) =>
-                                  switch (destination) {
-                                    _Destination.overview => _overview(data),
-                                    _Destination.holdings => _holdings(data),
-                                    _Destination.accounts => AccountsPage(
-                                      serverUrl: widget.serverUrl,
-                                      jwt: widget.jwt,
-                                      baseCurrency:
-                                          data.profile.baseCurrency ?? '',
-                                      client: widget.client,
-                                      embedded: true,
-                                      refreshRevision: _accountsRefreshRevision,
-                                    ),
-                                    _Destination.activity => ActivityFeed(
-                                      key: _activityKey,
-                                      enableAssetFilter: true,
-                                      baseCurrency:
-                                          data.profile.baseCurrency ?? '',
-                                      serverUrl: widget.serverUrl,
-                                      jwt: widget.jwt,
-                                      client: widget.client,
-                                      active:
-                                          _navigation.destination ==
-                                          _Destination.activity,
-                                      accountId: _accountId,
-                                    ),
-                                    _Destination.preferences => _settings(data),
-                                    _Destination.about =>
-                                      const SpookyfolioAboutPage(
-                                        embedded: true,
-                                      ),
-                                  },
+                                _Destination.holdings => _holdings(data),
+                                _Destination.accounts => AccountsPage(
+                                  serverUrl: widget.serverUrl,
+                                  jwt: widget.jwt,
+                                  baseCurrency: data.profile.baseCurrency ?? '',
+                                  client: widget.client,
+                                  embedded: true,
+                                  refreshRevision: _accountsRefreshRevision,
+                                ),
+                                _Destination.activity => ActivityFeed(
+                                  key: _activityKey,
+                                  enableAssetFilter: true,
+                                  baseCurrency: data.profile.baseCurrency ?? '',
+                                  serverUrl: widget.serverUrl,
+                                  jwt: widget.jwt,
+                                  client: widget.client,
+                                  active:
+                                      _navigation.destination ==
+                                      _Destination.activity,
+                                  accountId: _accountId,
+                                ),
+                                _Destination.preferences => _settings(data),
+                                _Destination.about =>
+                                  const SpookyfolioAboutPage(embedded: true),
+                              },
                             ),
                         ],
                       ),
@@ -337,6 +431,8 @@ class _MobileShellState extends State<MobileShell> {
 
   void _refreshCurrentDestination() {
     switch (_navigation.destination) {
+      case _Destination.allocations:
+        _refreshAllocations();
       case _Destination.accounts:
         setState(() => _accountsRefreshRevision++);
       case _Destination.activity:
@@ -663,11 +759,22 @@ class _MobileShellState extends State<MobileShell> {
 }
 
 class _Snapshot {
-  const _Snapshot(this.profile, this.details, this.history, this.historyIssue);
+  const _Snapshot(
+    this.profile,
+    this.details,
+    this.history,
+    this.historyIssue, {
+    required this.accountId,
+    required this.sessionRevision,
+    required this.range,
+  });
   final GhostfolioProfile profile;
   final PortfolioSnapshot details;
   final PortfolioHistory? history;
   final String? historyIssue;
+  final String? accountId;
+  final int sessionRevision;
+  final String range;
 }
 
 String _money(double? amount, String currency) => amount == null
@@ -679,6 +786,7 @@ String _percentage(double? ratio) =>
 
 enum _Destination {
   overview('Overview', Icons.dashboard_outlined),
+  allocations('Allocations', Icons.pie_chart_outline),
   holdings('Holdings', Icons.account_balance_wallet_outlined),
   accounts('Accounts', Icons.account_balance_outlined),
   activity('Activity', Icons.swap_horiz),
@@ -691,7 +799,10 @@ enum _Destination {
 }
 
 enum _Section {
-  dashboard('Dashboard', Icons.dashboard_outlined, [_Destination.overview]),
+  dashboard('Dashboard', Icons.dashboard_outlined, [
+    _Destination.overview,
+    _Destination.allocations,
+  ]),
   portfolio('Portfolio', Icons.account_balance_wallet_outlined, [
     _Destination.holdings,
     _Destination.accounts,
