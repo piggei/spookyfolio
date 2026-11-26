@@ -102,6 +102,13 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(widget.serverUrl, textAlign: TextAlign.center),
+                if (widget.serverUrl.toLowerCase().startsWith('http://')) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'LAN HTTP is not encrypted. Use only on a trusted network; authentication tokens are sent in cleartext.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
                 const SizedBox(height: 32),
                 TextField(
                   controller: _token,

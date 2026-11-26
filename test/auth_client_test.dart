@@ -141,4 +141,45 @@ void main() {
       throwsA(isA<AuthException>()),
     );
   });
+
+  test(
+    'LAN HTTP authentication rejects redirects and public destinations',
+    () async {
+      var requests = 0;
+      final client = AuthClient(
+        clientFactory: () => MockClient((request) async {
+          requests++;
+          expect(
+            request.url.toString(),
+            'http://192.168.1.14:3333/api/v1/auth/anonymous',
+          );
+          expect(request.followRedirects, isFalse);
+          expect(jsonDecode(request.body), {'accessToken': 'test-token'});
+          return http.Response(
+            '',
+            302,
+            headers: {'location': 'https://example.com'},
+          );
+        }),
+      );
+
+      await expectLater(
+        client.authenticate(
+          serverUrl: 'http://192.168.1.14:3333',
+          accessToken: 'test-token',
+        ),
+        throwsA(isA<AuthException>()),
+      );
+
+      await expectLater(
+        client.authenticate(
+          serverUrl: 'http://8.8.8.8:3333',
+          accessToken: 'test-token',
+        ),
+        throwsFormatException,
+      );
+
+      expect(requests, 1);
+    },
+  );
 }

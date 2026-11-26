@@ -16,18 +16,37 @@ class ServerClient {
   static const _timeout = Duration(seconds: 12);
   static const _maxResponseBytes = 1024 * 1024;
 
+  // Cleartext is accepted only for literal private/loopback IPv4 hosts.
+  // DNS names are deliberately excluded to avoid DNS rebinding.
+  static bool isPrivateLanHttp(Uri uri) {
+    if (uri.scheme != 'http') return false;
+    final host = uri.host;
+    if (!RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host)) {
+      return false;
+    }
+    final parts = host.split('.').map(int.parse).toList();
+    if (parts.any((part) => part > 255)) return false;
+    // Reject ambiguous non-canonical IPv4 spelling.
+    if (parts.join('.') != host) return false;
+    final a = parts[0], b = parts[1];
+    return a == 10 ||
+        (a == 172 && b >= 16 && b <= 31) ||
+        (a == 192 && b == 168) ||
+        a == 127;
+  }
+
   static Uri infoUri(String address) {
     final uri = Uri.tryParse(address.trim());
 
     if (uri == null ||
-        uri.scheme != 'https' ||
+        (uri.scheme != 'https' && !isPrivateLanHttp(uri)) ||
         uri.host.isEmpty ||
         uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment ||
         (uri.path.isNotEmpty && uri.path != '/')) {
       throw const FormatException(
-        'Enter a valid HTTPS server address without a path',
+        'Enter a valid HTTPS address or private IPv4 HTTP address without a path',
       );
     }
 

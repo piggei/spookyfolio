@@ -38,6 +38,35 @@ void main() {
     expect(result.isGhostfolioNg, isTrue);
   });
 
+  test('Inspects private LAN HTTP without redirecting', () async {
+    final client = mockClient((request) async {
+      expect(request.url.toString(), 'http://192.168.1.14:3333/api/v1/info');
+      expect(request.followRedirects, isFalse);
+      return http.Response(
+        jsonEncode(validInfo),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final result = await client.inspect('http://192.168.1.14:3333');
+    expect(result.isGhostfolioNg, isFalse);
+  });
+
+  test('Rejects redirects from private LAN HTTP', () async {
+    final client = mockClient((request) async {
+      expect(request.followRedirects, isFalse);
+      return http.Response(
+        '',
+        302,
+        headers: {'location': 'https://example.com'},
+      );
+    });
+    await expectLater(
+      client.inspect('http://192.168.1.14:3333'),
+      throwsA(isA<HttpException>()),
+    );
+  });
+
   test('Recognizes upstream HTTP response', () async {
     final client = mockClient((_) async {
       return http.Response(
