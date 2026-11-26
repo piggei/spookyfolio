@@ -54,4 +54,22 @@ void main() {
 
     expect(capturedJwt, 'jwt-test');
   });
+
+  testWidgets('LAN HTTP warning appears only for cleartext connections', (
+    tester,
+  ) async {
+    Widget page(String url) => MaterialApp(
+      home: LoginPage(
+        serverUrl: url,
+        edition: 'Ghostfolio',
+        onAuthenticated: (_, _) async {},
+      ),
+    );
+
+    await tester.pumpWidget(page('http://192.168.1.14:3333'));
+    expect(find.textContaining('tokens are sent in cleartext'), findsOneWidget);
+
+    await tester.pumpWidget(page('https://ghostfol.io'));
+    expect(find.textContaining('tokens are sent in cleartext'), findsNothing);
+  });
 }

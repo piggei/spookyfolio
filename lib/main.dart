@@ -108,9 +108,7 @@ class _ConnectionPageState extends State<ConnectionPage> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error is FormatException
-            ? error.message
-            : 'Connection failed. Check the server and HTTPS certificate.';
+        _error = error is FormatException ? error.message : 'Connection failed. Check the server address, network and HTTPS certificate.';
       });
     } finally {
       if (mounted) {
@@ -168,6 +166,7 @@ class _ConnectionPageState extends State<ConnectionPage> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: _address,
+                    onChanged: (_) => setState(() {}),
                     keyboardType: TextInputType.url,
                     autocorrect: false,
                     decoration: const InputDecoration(
@@ -176,6 +175,13 @@ class _ConnectionPageState extends State<ConnectionPage> {
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  if (_address.text.trim().toLowerCase().startsWith('http://'))
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Text(
+                        'LAN HTTP is not encrypted. Use only on a trusted network; authentication tokens are sent in cleartext.',
+                      ),
+                    ),
                 ],
                 const SizedBox(height: 24),
                 FilledButton(

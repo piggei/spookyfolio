@@ -119,4 +119,42 @@ void main() {
     expect(history.points.first.value, isNull);
     expect(history.points.last.value, 123.5);
   });
+
+  test(
+    'LAN HTTP portfolio requests keep JWT on the validated origin',
+    () async {
+      var requests = 0;
+      final client = PortfolioClient(
+        clientFactory: () => MockClient((request) async {
+          requests++;
+          expect(
+            request.url.toString(),
+            'http://192.168.1.14:3333/api/v1/user',
+          );
+          expect(request.headers['authorization'], 'Bearer jwt-test');
+          expect(request.followRedirects, isFalse);
+          return http.Response(
+            '',
+            302,
+            headers: {'location': 'https://example.com'},
+          );
+        }),
+      );
+
+      await expectLater(
+        client.getProfile(
+          serverUrl: 'http://192.168.1.14:3333',
+          jwt: 'jwt-test',
+        ),
+        throwsA(isA<PortfolioApiException>()),
+      );
+
+      await expectLater(
+        client.getProfile(serverUrl: 'http://8.8.8.8:3333', jwt: 'jwt-test'),
+        throwsFormatException,
+      );
+
+      expect(requests, 1);
+    },
+  );
 }

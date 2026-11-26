@@ -80,4 +80,38 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test(
+    'LAN HTTP registration rejects redirects and public destinations',
+    () async {
+      var requests = 0;
+      final client = RegistrationClient(
+        clientFactory: () => MockClient((request) async {
+          requests++;
+          expect(
+            request.url.toString(),
+            'http://192.168.1.14:3333/api/v1/user',
+          );
+          expect(request.followRedirects, isFalse);
+          return http.Response(
+            '',
+            302,
+            headers: {'location': 'https://example.com'},
+          );
+        }),
+      );
+
+      await expectLater(
+        client.register(serverUrl: 'http://192.168.1.14:3333'),
+        throwsA(isA<RegistrationException>()),
+      );
+
+      await expectLater(
+        client.register(serverUrl: 'http://8.8.8.8:3333'),
+        throwsFormatException,
+      );
+
+      expect(requests, 1);
+    },
+  );
 }
