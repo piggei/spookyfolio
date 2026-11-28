@@ -38,14 +38,17 @@ class PortfolioActivity {
     this.quantity,
     this.unitPrice,
     this.fee,
+    this.tax,
     this.value,
     this.dataSource,
     this.assetCurrency,
     this.isin,
     this.accountId,
     this.comment,
+    this.isDraft = false,
     this.valueInBaseCurrency,
     this.feeInBaseCurrency,
+    this.taxInBaseCurrency,
     this.feeInAssetProfileCurrency,
     this.unitPriceInAssetProfileCurrency,
     this.createdAt,
@@ -62,14 +65,17 @@ class PortfolioActivity {
   final double? quantity;
   final double? unitPrice;
   final double? fee;
+  final double? tax;
   final double? value;
   final String? dataSource;
   final String? assetCurrency;
   final String? isin;
   final String? accountId;
   final String? comment;
+  final bool isDraft;
   final double? valueInBaseCurrency;
   final double? feeInBaseCurrency;
+  final double? taxInBaseCurrency;
   final double? feeInAssetProfileCurrency;
   final double? unitPriceInAssetProfileCurrency;
   final DateTime? createdAt;
@@ -131,14 +137,17 @@ class PortfolioActivity {
       quantity: optNumber('quantity'),
       unitPrice: optNumber('unitPrice'),
       fee: optNumber('fee'),
+      tax: optNumber('tax'),
       value: optNumber('value'),
       dataSource: optString(asset?['dataSource']),
       assetCurrency: optString(asset?['currency']),
       isin: optString(asset?['isin']),
       accountId: optString(json['accountId']),
       comment: optString(json['comment']),
+      isDraft: _isDraft(json['tags']),
       valueInBaseCurrency: optNumber('valueInBaseCurrency'),
       feeInBaseCurrency: optNumber('feeInBaseCurrency'),
+      taxInBaseCurrency: optNumber('taxInBaseCurrency'),
       feeInAssetProfileCurrency: optNumber('feeInAssetProfileCurrency'),
       unitPriceInAssetProfileCurrency: optNumber(
         'unitPriceInAssetProfileCurrency',
@@ -147,4 +156,16 @@ class PortfolioActivity {
       updatedAt: optDate('updatedAt'),
     );
   }
+}
+
+// Ghostfolio marks draft activities using its Draft tag. Unknown tag
+// structures are not interpreted as draft markers.
+bool _isDraft(Object? raw) {
+  if (raw is! List) return false;
+  return raw.any(
+    (tag) =>
+        tag is Map &&
+        tag['name'] is String &&
+        (tag['name'] as String).toLowerCase() == 'draft',
+  );
 }

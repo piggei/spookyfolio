@@ -175,14 +175,14 @@ void main() {
             .destinations
             .cast<NavigationDestination>()
             .map((d) => d.label),
-        ['Overview', 'Allocations', 'Invested vs Earned'],
+        ['Overview', 'Invested vs Earned', 'Allocations'],
       );
       await allocations(tester);
       expect(api.allocationRequests, hasLength(1));
       expect(find.byType(AllocationsContent), findsOneWidget);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        1,
+        2,
       );
       await tester.tap(find.byKey(const ValueKey('destination-overview')));
       await tester.pumpAndSettle();
@@ -194,7 +194,7 @@ void main() {
       expect(find.byType(AllocationsContent), findsOneWidget);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        1,
+        2,
       );
       expect(api.allocationRequests, hasLength(1));
       expect(api.count('/api/v1/user'), 1);
@@ -207,15 +207,18 @@ void main() {
     final api = Api();
     await tester.pumpWidget(app(api));
     await tester.pumpAndSettle();
-    final pages = find.byKey(const ValueKey('dashboard-swipe-pages'));
+    await tester.dragFrom(const Offset(400, 140), const Offset(-600, 0));
+    await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 140), const Offset(-600, 0));
     await tester.pumpAndSettle();
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      1,
+      2,
     );
     expect(find.byType(AllocationsContent), findsOneWidget);
-    await tester.drag(pages, const Offset(600, 0));
+    await tester.dragFrom(const Offset(200, 140), const Offset(600, 0));
+    await tester.pumpAndSettle();
+    await tester.dragFrom(const Offset(200, 140), const Offset(600, 0));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('overview-page')), findsOneWidget);
     expect(
@@ -281,7 +284,7 @@ void main() {
       expect(currentMarker(tester), 'Filtered allocation');
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        1,
+        2,
       );
       old.complete(response(body('Stale allocation')));
       await tester.pumpAndSettle();
@@ -386,7 +389,7 @@ void main() {
       await chooseAccount(tester);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        1,
+        2,
       );
       expect(
         api.ordinaryDetails,
@@ -460,7 +463,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        0,
+        1,
       );
       await allocations(tester);
       expect(
@@ -489,7 +492,7 @@ void main() {
       expect(find.text('Could not update portfolio data.'), findsNothing);
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        1,
+        2,
       );
       expect(currentMarker(tester), 'Current allocation');
       expect(

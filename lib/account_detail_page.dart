@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import 'activity_feed.dart';
+import 'account_financial_summary.dart';
 import 'portfolio_client.dart';
 
 class AccountDetailPage extends StatefulWidget {
@@ -29,6 +30,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
 
   late Future<PortfolioAccount> _account;
   Future<PortfolioAccountBalances>? _balances;
+  Future<AccountFinancialSummary>? _financialSummary;
 
   int _section = 0;
 
@@ -50,6 +52,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
         oldWidget.jwt != widget.jwt) {
       _loadAccount();
       _balances = null;
+      _financialSummary = null;
       _section = 0;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -67,6 +70,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
   }
 
   void _loadAccount() {
+    _financialSummary = null;
     _account = _api.getAccountById(
       serverUrl: widget.serverUrl,
       jwt: widget.jwt,
@@ -168,6 +172,12 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           );
         }
 
+        _financialSummary ??= loadAccountFinancialSummary(
+          client: _api,
+          serverUrl: widget.serverUrl,
+          jwt: widget.jwt,
+          accountId: account.id,
+        );
         return ListView(
           key: const ValueKey('account-detail-overview'),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -179,24 +189,89 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
             if (account.platformName != null) Text(account.platformName!),
             const SizedBox(height: 16),
             Text(
-              'Account information',
+              'Account details',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             _metric('Currency', account.currency),
-            _metric('Cash balance', _money(account.balance, account.currency)),
-            _metric(
-              'Holdings value',
-              _money(account.value, widget.baseCurrency),
-            ),
-            _metric('Portfolio allocation', _percent(account.allocation)),
-            _metric(
-              'Transactions',
-              account.activitiesCount?.toString() ?? 'Not available',
-            ),
-            _metric(
-              'Dividends',
-              _money(account.dividends, widget.baseCurrency),
+            if (account.balance != null)
+              _metric(
+                'Cash balance',
+                _money(account.balance, account.currency),
+              ),
+            if (account.value != null)
+              _metric(
+                'Holdings value',
+                _money(account.value, widget.baseCurrency),
+              ),
+            if (account.allocation != null)
+              _metric('Portfolio allocation', _percent(account.allocation)),
+            if (account.activitiesCount != null)
+              _metric('Transactions', account.activitiesCount.toString()),
+            FutureBuilder<AccountFinancialSummary>(
+              future: _financialSummary,
+              builder: (context, summarySnapshot) {
+                final summary = summarySnapshot.data;
+                final taxesReconciled =
+                    account.dividends != null &&
+                    summary?.dividendTaxes != null &&
+                    summary?.dividendGross != null &&
+                    dividendsReconcile(
+                      account.dividends!,
+                      summary!.dividendGross!,
+                    );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (summary?.tradingFees != null) ...[
+                      const Divider(height: 24),
+                      Text(
+                        'Fees paid',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      _metric(
+                        'Trading fees',
+                        _money(summary!.tradingFees, widget.baseCurrency),
+                      ),
+                    ],
+                    if (account.interest != null) ...[
+                      const Divider(height: 24),
+                      Text(
+                        'Interest',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      _metric(
+                        'Interest received',
+                        _money(account.interest, widget.baseCurrency),
+                      ),
+                    ],
+                    if (account.dividends != null) ...[
+                      const Divider(height: 24),
+                      Text(
+                        'Dividends',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      _metric(
+                        'Gross dividends',
+                        _money(account.dividends, widget.baseCurrency),
+                      ),
+                      if (taxesReconciled) ...[
+                        _metric(
+                          'Of which taxes',
+                          _money(summary.dividendTaxes, widget.baseCurrency),
+                        ),
+                        _metric(
+                          'Net dividends',
+                          _money(
+                            account.dividends! - summary.dividendTaxes!,
+                            widget.baseCurrency,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             const Text(

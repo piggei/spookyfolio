@@ -354,7 +354,11 @@ class ActivityCard extends StatelessWidget {
                     ),
                   ),
                   Text(date),
-                  if (a.symbol != null) Text(a.symbol!),
+                  if (a.symbol != null &&
+                      !RegExp(
+                        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+                      ).hasMatch(a.symbol!))
+                    Text(a.symbol!),
                 ],
               ),
               const SizedBox(height: 9),
@@ -362,11 +366,18 @@ class ActivityCard extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 4,
                 children: [
-                  Text('Quantity: ${_number(a.quantity, digits: 4)}'),
-                  Text('Unit price: ${_amount(a.unitPrice, a.currency)}'),
-                  Text('Fee: ${_amount(a.fee, a.currency)}'),
+                  if (a.quantity != null)
+                    Text('Quantity: ${_number(a.quantity, digits: 4)}'),
+                  if (a.unitPrice != null)
+                    Text('Unit price: ${_amount(a.unitPrice, a.currency)}'),
+                  if (a.fee != null) Text('Fee: ${_amount(a.fee, a.currency)}'),
+                  if (a.tax != null) Text('Tax: ${_amount(a.tax, a.currency)}'),
                 ],
               ),
+              if (a.comment != null) ...[
+                const SizedBox(height: 6),
+                Text('Note: ${a.comment}'),
+              ],
               if (a.accountName != null) ...[
                 const SizedBox(height: 6),
                 Text(

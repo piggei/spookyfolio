@@ -145,27 +145,36 @@ class _AccountsPageState extends State<AccountsPage> {
                           ),
                         ),
                         const Divider(height: 1),
-                        _metric(
-                          'Cash balance',
-                          _amount(account.balance, account.currency),
-                        ),
-                        _metric(
-                          'Holdings value',
-                          _amount(account.value, widget.baseCurrency),
-                        ),
-                        _metric(
-                          'Portfolio allocation',
-                          _allocation(account.allocation),
-                        ),
-                        _metric(
-                          'Transactions',
-                          account.activitiesCount?.toString() ??
-                              'Not available',
-                        ),
-                        _metric(
-                          'Dividends',
-                          _amount(account.dividends, widget.baseCurrency),
-                        ),
+                        if (account.balance != null)
+                          _metric(
+                            'Cash balance',
+                            _amount(account.balance, account.currency),
+                          ),
+                        if (account.value != null)
+                          _metric(
+                            'Holdings value',
+                            _amount(account.value, widget.baseCurrency),
+                          ),
+                        if (account.allocation != null)
+                          _metric(
+                            'Portfolio allocation',
+                            _allocation(account.allocation),
+                          ),
+                        if (account.activitiesCount != null)
+                          _metric(
+                            'Transactions',
+                            account.activitiesCount.toString(),
+                          ),
+                        if (account.dividends != null)
+                          _metric(
+                            'Dividends',
+                            _amount(account.dividends, widget.baseCurrency),
+                          ),
+                        if (account.interest != null)
+                          _metric(
+                            'Interest',
+                            _amount(account.interest, widget.baseCurrency),
+                          ),
                         const SizedBox(height: 6),
                       ],
                     ),

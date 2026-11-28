@@ -134,7 +134,10 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
         if (activity.isin != null) _metric('ISIN', activity.isin!),
         _metric('Quantity', _number(activity.quantity, digits: 4)),
         _metric('Unit price', _money(activity.unitPrice, currency)),
-        _metric('Fee', _money(activity.fee, currency)),
+        if (activity.fee != null)
+          _metric('Fee', _money(activity.fee, currency)),
+        if (activity.tax != null)
+          _metric('Tax', _money(activity.tax, currency)),
         _metric('Value', _money(activity.value, currency)),
         if (activity.accountName != null)
           _metric('Account', activity.accountName!),
@@ -145,7 +148,8 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
           Text(activity.comment!),
         ],
         if (activity.valueInBaseCurrency != null ||
-            activity.feeInBaseCurrency != null) ...[
+            activity.feeInBaseCurrency != null ||
+            activity.taxInBaseCurrency != null) ...[
           const SizedBox(height: 20),
           Text(
             'Portfolio base currency',
@@ -159,6 +163,8 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
             ),
           if (activity.feeInBaseCurrency != null)
             _metric('Fee', _money(activity.feeInBaseCurrency, baseCurrency)),
+          if (activity.taxInBaseCurrency != null)
+            _metric('Tax', _money(activity.taxInBaseCurrency, baseCurrency)),
         ],
         if (activity.unitPriceInAssetProfileCurrency != null ||
             activity.feeInAssetProfileCurrency != null) ...[
