@@ -224,7 +224,7 @@ class _ChartPainter extends CustomPainter {
       line,
       Paint()
         ..color = lineColor
-        ..strokeWidth = 2.5
+        ..strokeWidth = 1.8
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..style = PaintingStyle.stroke,

@@ -174,7 +174,7 @@ void main() {
       final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(
         bar.destinations.cast<NavigationDestination>().map((d) => d.label),
-        ['Overview', 'Allocations', 'Invested vs Earned'],
+        ['Overview', 'Invested vs Earned', 'Allocations'],
       );
       await range(tester, 'YTD');
       expect(api.requests.map((r) => r.range), ['max', 'ytd']);
@@ -218,7 +218,7 @@ void main() {
     expect(find.text('Portfolio Value: 11.00 EUR'), findsOneWidget);
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      2,
+      1,
     );
     await destination(tester, 'overview');
     await destination(tester, 'investedEarned');

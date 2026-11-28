@@ -83,6 +83,11 @@ class FakeAccountClient extends PortfolioClient {
     int skip = 0,
     int take = 40,
   }) async {
+    if (take == 100) {
+      // Financial-summary pagination is independent of the Activity feed.
+      // These navigation tests do not provide financial summary fixtures.
+      return const ActivityBatch(activities: [], count: 0);
+    }
     activityCalls++;
     activityOffsets.add(skip);
     activityAccountIds.add(accountId);
@@ -213,6 +218,9 @@ class _SwitchingActivityClient extends _SwitchingAccountClient {
     int skip = 0,
     int take = 40,
   }) async {
+    if (take == 100) {
+      return const ActivityBatch(activities: [], count: 0);
+    }
     activityAccountIds.add(accountId);
 
     return ActivityBatch(
@@ -239,7 +247,100 @@ class _SwitchingActivityClient extends _SwitchingAccountClient {
   }
 }
 
+class _FinancialSectionsClient extends FakeAccountClient {
+  @override
+  Future<PortfolioAccount> getAccountById({
+    required String serverUrl,
+    required String jwt,
+    required String accountId,
+  }) async => PortfolioAccount(
+    id: accountId,
+    name: 'Brokerage',
+    currency: 'USD',
+    balance: 1250.75,
+    value: 4321.25,
+    allocation: 0.4,
+    dividends: 40.5,
+    interest: 2,
+  );
+
+  @override
+  Future<ActivityBatch> getActivitiesForAccount({
+    required String serverUrl,
+    required String jwt,
+    required String accountId,
+    int skip = 0,
+    int take = 40,
+  }) async {
+    if (take != 100) {
+      return super.getActivitiesForAccount(
+        serverUrl: serverUrl,
+        jwt: jwt,
+        accountId: accountId,
+        skip: skip,
+        take: take,
+      );
+    }
+    return ActivityBatch(
+      activities: [
+        PortfolioActivity.fromJson({
+          'id': 'buy-fee',
+          'date': '2026-11-20',
+          'type': 'BUY',
+          'accountId': accountId,
+          'feeInBaseCurrency': 5,
+        }),
+        PortfolioActivity.fromJson({
+          'id': 'dividend',
+          'date': '2026-11-20',
+          'type': 'DIVIDEND',
+          'accountId': accountId,
+          'valueInBaseCurrency': 40.5,
+          'taxInBaseCurrency': 10.5,
+        }),
+      ],
+      count: 2,
+    );
+  }
+}
+
 void main() {
+  testWidgets('financial sections retain order and dividend grouping', (
+    tester,
+  ) async {
+    final client = _FinancialSectionsClient();
+    await tester.pumpWidget(detailApp(client));
+    await tester.pumpAndSettle();
+
+    final labels = [
+      'Account details',
+      'Fees paid',
+      'Trading fees',
+      'Interest',
+      'Interest received',
+      'Dividends',
+      'Gross dividends',
+      'Of which taxes',
+      'Net dividends',
+    ];
+
+    for (final label in labels) {
+      expect(find.text(label), findsOneWidget);
+    }
+
+    final positions = labels
+        .map((label) => tester.getTopLeft(find.text(label)).dy)
+        .toList();
+
+    for (var i = 1; i < positions.length; i++) {
+      expect(positions[i], greaterThan(positions[i - 1]));
+    }
+
+    expect(find.text('40.50 EUR'), findsOneWidget);
+    expect(find.text('10.50 EUR'), findsOneWidget);
+    expect(find.text('30.00 EUR'), findsOneWidget);
+  });
+
   testWidgets('opens account detail and returns to Accounts', (tester) async {
     final api = FakeAccountClient();
 

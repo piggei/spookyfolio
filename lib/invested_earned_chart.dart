@@ -258,7 +258,7 @@ class _MonetaryPainter extends CustomPainter {
     }) {
       final paint = Paint()
         ..color = color
-        ..strokeWidth = 2.5;
+        ..strokeWidth = 1.8;
       Offset? previous;
       for (var i = 0; i < points.length; i++) {
         final value = amount(points[i]);

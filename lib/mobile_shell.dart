@@ -632,12 +632,14 @@ class _MobileShellState extends State<MobileShell> {
               children: [
                 _tile('Change incl. FX', _money(delta, currency), width),
                 _tile('Return incl. FX', _percentage(performance), width),
-                _tile(
-                  'Invested',
-                  _money(data.details.investedValue, currency),
-                  width,
-                ),
-                _tile('Cash', _money(data.details.cash, currency), width),
+                if (data.details.investedValue != null)
+                  _tile(
+                    'Invested',
+                    _money(data.details.investedValue, currency),
+                    width,
+                  ),
+                if (data.details.cash != null)
+                  _tile('Cash', _money(data.details.cash, currency), width),
               ],
             );
           },
@@ -831,13 +833,13 @@ enum _Destination {
 enum _Section {
   dashboard('Dashboard', Icons.dashboard_outlined, [
     _Destination.overview,
-    _Destination.allocations,
     _Destination.investedEarned,
+    _Destination.allocations,
   ]),
   portfolio('Portfolio', Icons.account_balance_wallet_outlined, [
     _Destination.holdings,
-    _Destination.accounts,
     _Destination.activity,
+    _Destination.accounts,
   ]),
   settings('Settings', Icons.settings_outlined, [
     _Destination.preferences,

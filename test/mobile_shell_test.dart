@@ -333,7 +333,7 @@ void main() {
         bar.destinations.cast<NavigationDestination>().map(
           (destination) => destination.label,
         ),
-        ['Holdings', 'Accounts', 'Activity'],
+        ['Holdings', 'Activity', 'Accounts'],
       );
       expect(
         bar.destinations.cast<NavigationDestination>().map(
@@ -341,8 +341,8 @@ void main() {
         ),
         [
           Icons.account_balance_wallet_outlined,
-          Icons.account_balance_outlined,
           Icons.swap_horiz,
+          Icons.account_balance_outlined,
         ],
       );
       await _section(tester, 'Settings');
@@ -365,7 +365,7 @@ void main() {
             .destinations
             .cast<NavigationDestination>()
             .map((destination) => destination.label),
-        ['Overview', 'Allocations', 'Invested vs Earned'],
+        ['Overview', 'Invested vs Earned', 'Allocations'],
       );
     },
   );
@@ -430,17 +430,17 @@ void main() {
     final pages = find.byKey(const ValueKey('portfolio-swipe-pages'));
     await tester.drag(pages, const Offset(-600, 0));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('accounts-overview-page')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
       1,
     );
     await tester.drag(pages, const Offset(-600, 0));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('accounts-overview-page')),
+      findsOneWidget,
+    );
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
       2,
@@ -493,10 +493,7 @@ void main() {
     await gesture.moveBy(const Offset(-500, 0));
     await gesture.up();
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('accounts-overview-page')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
   });
 
   testWidgets('Android Back restores previous section and subsection', (
@@ -513,7 +510,7 @@ void main() {
     expect(find.byKey(const ValueKey('activity-page')), findsOneWidget);
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      2,
+      1,
     );
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -756,7 +753,7 @@ void main() {
           tester
               .widget<NavigationBar>(find.byType(NavigationBar))
               .selectedIndex,
-          1,
+          2,
         );
         if (fails) {
           api.failedDetails.completeError(
@@ -781,7 +778,7 @@ void main() {
           tester
               .widget<NavigationBar>(find.byType(NavigationBar))
               .selectedIndex,
-          1,
+          2,
         );
         await _section(tester, 'Dashboard');
         expect(find.text('Account: Test account'), findsOneWidget);
@@ -875,7 +872,7 @@ void main() {
     );
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      1,
+      2,
     );
     expect(api.profiles, 1);
     expect(api.catalogs, 1);

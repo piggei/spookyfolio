@@ -298,6 +298,7 @@ class PortfolioAccount {
     this.allocation,
     this.activitiesCount,
     this.dividends,
+    this.interest,
   });
 
   final String id;
@@ -309,6 +310,7 @@ class PortfolioAccount {
   final double? allocation;
   final int? activitiesCount;
   final double? dividends;
+  final double? interest;
 
   factory PortfolioAccount.fromJson(Map<String, dynamic> json) {
     final id = json['id'];
@@ -331,6 +333,7 @@ class PortfolioAccount {
       value: _optionalNumber(json, 'valueInBaseCurrency'),
       allocation: _optionalNumber(json, 'allocationInPercentage'),
       dividends: _optionalNumber(json, 'dividendInBaseCurrency'),
+      interest: _optionalNumber(json, 'interestInBaseCurrency'),
       activitiesCount: _accountCount(json['activitiesCount']),
       platformName:
           platform is Map<String, dynamic> && platform['name'] is String
